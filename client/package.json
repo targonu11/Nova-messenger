@@ -1,0 +1,126 @@
+{
+  "name": "nova-messenger",
+  "private": true,
+  "version": "1.1.0",
+  "type": "module",
+  "main": "electron-main.cjs",
+  "scripts": {
+    "dev": "node scripts/clear-vite-cache.mjs && vite",
+    "dev:fresh": "node scripts/clear-vite-cache.mjs && vite --force",
+    "build": "vite build",
+    "build:app": "cross-env VITE_API_URL=http://localhost:3001 vite build",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "npm run build:app && electron-builder",
+    "electron:build:linux": "npm run build:app && electron-builder --linux",
+    "electron:build:mac": "npm run build:app && electron-builder --mac",
+    "electron:build:dir": "npm run build:app && electron-builder --dir",
+    "cap:android": "npm run build && npx cap sync android && npx cap open android",
+    "cap:ios": "npm run build && npx cap sync ios && npx cap open ios",
+    "android:build": "npm run build && npx cap sync android",
+    "android:apk": "npm run android:build && cd android && ./gradlew assembleDebug",
+    "android:aab": "npm run android:build && cd android && ./gradlew bundleRelease",
+    "android:apkx": "npm run android:aab",
+    "android:both": "npm run android:release && npm run android:aab",
+    "android:release": "npm run android:build && cd android && ./gradlew assembleRelease"
+  },
+  "dependencies": {
+    "@coooookies/windows-smtc-monitor": "^1.0.12",
+    "jsmediatags": "^3.9.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socket.io-client": "^4.8.0"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "concurrently": "^9.0.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-updater": "^6.3.9",
+    "vite": "^5.4.10",
+    "wait-on": "^8.0.0"
+  },
+  "build": {
+    "appId": "com.nova.messenger",
+    "productName": "Nova",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist",
+      "electron-main.cjs",
+      "preload.cjs",
+      "activityDetector.cjs",
+      "scripts",
+      "node_modules"
+    ],
+    "asarUnpack": [
+      "**/node_modules/@coooookies/**"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Nova"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.social-networking",
+      "icon": "build/icon.icns",
+      "hardenedRuntime": true
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Network",
+      "maintainer": "nova <nova@local>",
+      "synopsis": "Nova Messenger",
+      "description": "Nova messenger — desktop client",
+      "icon": "build/icon.png"
+    }
+  }
+}

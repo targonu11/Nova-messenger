@@ -1,0 +1,49 @@
+{
+  "name": "nova-installer",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Nova — графический установщик (Steam-style)",
+  "main": "electron-main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable",
+    "build:setup": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.nova.installer",
+    "productName": "Nova Installer",
+    "directories": {
+      "output": "../installer/releases"
+    },
+    "files": [
+      "index.html",
+      "styles.css",
+      "app.js",
+      "electron-main.cjs",
+      "preload.cjs",
+      "config.json"
+    ],
+    "extraResources": [
+      {
+        "from": "bundled",
+        "to": "bundled",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "Nova-Installer.${ext}"
+    }
+  }
+}

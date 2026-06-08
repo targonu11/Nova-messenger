@@ -1,0 +1,85 @@
+.bot-command-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 4px;
+  max-height: min(280px, 40vh);
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.14);
+  z-index: 25;
+}
+
+.bot-command-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.bot-command-item:hover,
+.bot-command-item.active {
+  background: var(--bg-hover);
+}
+
+.bot-command-name {
+  flex-shrink: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--accent, #5b8def);
+}
+
+.bot-command-desc {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-footer-bot-cmd {
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent, #5b8def);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.chat-footer-bot-cmd:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.chat-footer-bot-cmd:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.chat-footer-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.chat-footer-input-wrap .chat-footer-input {
+  width: 100%;
+}

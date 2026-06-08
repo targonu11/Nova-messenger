@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>Nova — установка</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="bg-grid"></div>
+
+  <header class="titlebar" id="titlebar">
+    <div class="titlebar-brand">
+      <div class="logo-mark">N</div>
+      <span class="titlebar-text">Nova Installer</span>
+    </div>
+    <div class="titlebar-actions">
+      <button type="button" class="tb-btn" id="btn-min" title="Свернуть" aria-label="Свернуть">&#8722;</button>
+      <button type="button" class="tb-btn tb-close" id="btn-close" title="Закрыть" aria-label="Закрыть">&#10005;</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <aside class="hero">
+      <div class="hero-inner">
+        <div class="hero-logo">
+          <span class="hero-logo-letter">N</span>
+          <span class="hero-logo-ring"></span>
+        </div>
+        <h1 class="hero-title">Nova</h1>
+        <p class="hero-tagline">Мессенджер нового поколения</p>
+        <ul class="hero-features">
+          <li>Чаты и группы</li>
+          <li>Голос и видео</li>
+          <li>Звонки и экран</li>
+        </ul>
+      </div>
+      <div class="hero-footer">
+        <span id="version-label">v1.1.0</span>
+      </div>
+    </aside>
+
+    <section class="wizard">
+      <!-- Welcome -->
+      <div class="screen active" data-screen="welcome">
+        <h2 class="screen-title">Добро пожаловать</h2>
+        <p class="screen-desc">
+          Мастер установки загрузит Nova на этот компьютер.
+          Понадобится подключение к интернету, если установщик не встроен в пакет.
+        </p>
+        <div class="info-card" id="bundled-hint" hidden>
+          <span class="info-dot"></span>
+          Полная версия в пакете — загрузка из интернета не требуется.
+        </div>
+        <div class="disk-row">
+          <span class="disk-label">Требуется на диске</span>
+          <span class="disk-value">~350 МБ</span>
+        </div>
+      </div>
+
+      <!-- Path -->
+      <div class="screen" data-screen="path">
+        <h2 class="screen-title">Папка установки</h2>
+        <p class="screen-desc">Выберите, куда установить Nova на этом компьютере.</p>
+        <div class="path-field">
+          <input type="text" id="install-path" readonly />
+          <button type="button" class="btn-secondary" id="btn-browse">Обзор…</button>
+        </div>
+      </div>
+
+      <!-- Installing -->
+      <div class="screen" data-screen="installing">
+        <h2 class="screen-title" id="install-title">Установка Nova</h2>
+        <p class="screen-desc" id="install-status">Подготовка…</p>
+        <div class="progress-wrap">
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+            <div class="progress-shine"></div>
+          </div>
+          <div class="progress-meta">
+            <span id="progress-percent">0%</span>
+            <span id="progress-detail"></span>
+          </div>
+        </div>
+        <div class="install-log" id="install-log"></div>
+      </div>
+
+      <!-- Done -->
+      <div class="screen" data-screen="done">
+        <div class="done-icon">✓</div>
+        <h2 class="screen-title">Установка завершена</h2>
+        <p class="screen-desc">Nova готова к запуску. Ярлык создан на рабочем столе.</p>
+      </div>
+
+      <!-- Error -->
+      <div class="screen" data-screen="error">
+        <div class="error-icon">!</div>
+        <h2 class="screen-title">Ошибка установки</h2>
+        <p class="screen-desc error-msg" id="error-text"></p>
+      </div>
+
+      <footer class="wizard-footer">
+        <button type="button" class="btn-ghost" id="btn-back" hidden>Назад</button>
+        <div class="footer-spacer"></div>
+        <button type="button" class="btn-primary" id="btn-next">Далее</button>
+      </footer>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

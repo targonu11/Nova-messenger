@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#7812e4" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Nova</title>
+    <!-- До загрузки CSS не ставим light. Тему на нужную сменит React после монтирования. -->
+    <script>
+      try {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {}
+    </script>
+    <!-- Критичные стили сразу в HTML — в веб-версии index.css грузится только с main.jsx, без этого экран тёмный и пустой -->
+    <style>
+      :root, [data-theme="dark"] {
+        --bg-primary: #0a090c;
+        --bg-secondary: #110f14;
+        --text-primary: #f0f0f2;
+        --text-secondary: #a8a8ae;
+        --accent: #7812e4;
+      }
+      [data-theme="light"] {
+        --bg-primary: #f7f5fa;
+        --bg-secondary: #ffffff;
+        --text-primary: #1c1c1e;
+        --text-secondary: #636366;
+        --accent: #7812e4;
+      }
+      html, body { margin: 0; padding: 0; height: 100%; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); }
+      #root { min-height: 100%; height: 100%; display: flex; flex-direction: column; }
+      .app-loading { display: flex; align-items: center; justify-content: center; min-height: 100%; font-size: 1rem; color: var(--text-secondary); }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body style="margin:0;min-height:100vh;">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

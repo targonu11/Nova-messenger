@@ -1,0 +1,312 @@
+/* Nova motion batch 4 — emoji bar, read ticks, comets, calls, polish */
+
+@keyframes nova-read-pop {
+  0% { transform: scale(0.6); opacity: 0.4; color: var(--text-muted); }
+  50% { transform: scale(1.25); opacity: 1; color: #3b82f6; }
+  100% { transform: scale(1); opacity: 1; color: #3b82f6; }
+}
+
+@keyframes nova-quick-emoji-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes nova-quick-emoji-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+@keyframes nova-header-typing-glow {
+  0%, 100% { box-shadow: inset 0 -2px 0 transparent; }
+  50% { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+}
+
+@keyframes nova-pinned-chip-in {
+  from { opacity: 0; transform: translateX(-12px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes nova-forward-label-in {
+  from { opacity: 0; transform: translateX(-6px); border-left-width: 0; }
+  to { opacity: 1; transform: translateX(0); border-left-width: 3px; }
+}
+
+@keyframes nova-call-incoming-shake {
+  0%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(-2deg); }
+  20% { transform: rotate(2deg); }
+  30% { transform: rotate(-2deg); }
+  40% { transform: rotate(2deg); }
+  50% { transform: rotate(0deg); }
+}
+
+@keyframes nova-rail-active-pill {
+  from { transform: scaleY(0.3); opacity: 0; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+@keyframes nova-login-success {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.02); box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 35%, transparent); }
+  100% { transform: scale(1); }
+}
+
+@keyframes nova-theme-flash {
+  0% { opacity: 0.12; }
+  100% { opacity: 0; }
+}
+
+@keyframes nova-quote-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nova-emoji-bar-shimmer {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes nova-message-menu-pop {
+  from { opacity: 0; transform: scale(0.88) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes nova-voice-play-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 30%, transparent); }
+  50% { box-shadow: 0 0 0 8px transparent; }
+}
+
+@keyframes nova-search-focus-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent); }
+  100% { box-shadow: 0 0 0 6px transparent; }
+}
+
+@keyframes nova-connected-burst {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Read ticks */
+html:not([data-reduce-motion="true"]) .message-read-ticks.read {
+  animation: nova-read-pop 0.45s cubic-bezier(0.34, 1.4, 0.64, 1);
+  color: #3b82f6;
+}
+
+/* Quick emoji bar */
+.chat-quick-emoji-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chat-quick-emoji-bar::-webkit-scrollbar {
+  display: none;
+}
+
+html:not([data-reduce-motion="true"]) .chat-quick-emoji-bar {
+  animation: nova-quick-emoji-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chat-quick-emoji-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.chat-quick-emoji-btn:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-tertiary));
+  transform: scale(1.12);
+}
+
+html:not([data-reduce-motion="true"]) .chat-quick-emoji-btn:active {
+  animation: nova-quick-emoji-pop 0.3s ease;
+}
+
+/* Header typing state */
+html:not([data-reduce-motion="true"]) .chat-header--peer-typing {
+  animation: nova-header-typing-glow 2s ease-in-out infinite;
+}
+
+html:not([data-reduce-motion="true"]) .chat-header--peer-typing .chat-header-presence {
+  color: var(--accent);
+}
+
+/* Pinned chips */
+html:not([data-reduce-motion="true"]) .chat-pinned-chip {
+  animation: nova-pinned-chip-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html:not([data-reduce-motion="true"]) .chat-pinned-chip:nth-child(2) { animation-delay: 0.05s; }
+html:not([data-reduce-motion="true"]) .chat-pinned-chip:nth-child(3) { animation-delay: 0.1s; }
+
+html:not([data-reduce-motion="true"]) .chat-pinned-chip:hover {
+  transform: translateY(-1px);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+/* Forward label */
+html:not([data-reduce-motion="true"]) .message-forward-label {
+  animation: nova-forward-label-in 0.3s ease;
+}
+
+/* Call incoming */
+html:not([data-reduce-motion="true"]) .call-panel-incoming {
+  animation: nova-call-incoming-shake 0.6s ease 0.2s, nova-scale-in 0.35s ease;
+}
+
+html:not([data-reduce-motion="true"]) .call-panel-incoming .call-panel-btn--accept {
+  animation: nova-heartbeat 1.2s ease-in-out infinite;
+}
+
+/* Server rail active pill */
+html:not([data-reduce-motion="true"]) .server-rail-btn.active::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  width: 4px;
+  height: 60%;
+  border-radius: 0 4px 4px 0;
+  background: var(--text-primary);
+  transform: translateY(-50%);
+  animation: nova-rail-active-pill 0.25s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+html:not([data-reduce-motion="true"]) .server-rail-btn {
+  position: relative;
+}
+
+/* Login success */
+html:not([data-reduce-motion="true"]) .login-form--success {
+  animation: nova-login-success 0.55s ease;
+}
+
+html:not([data-reduce-motion="true"]) .login-server-status--online .login-server-status-dot {
+  animation: nova-connected-burst 0.5s ease;
+}
+
+/* Welcome quote */
+.welcome-quote {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-style: italic;
+  color: var(--text-secondary);
+  max-width: 360px;
+  line-height: 1.45;
+}
+
+html:not([data-reduce-motion="true"]) .welcome-quote {
+  animation: nova-quote-fade 0.7s ease 0.15s both;
+}
+
+/* Theme flash overlay */
+.nova-theme-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99999;
+  background: var(--accent);
+  opacity: 0;
+}
+
+html:not([data-reduce-motion="true"]) .nova-theme-flash--active {
+  animation: nova-theme-flash 0.45s ease forwards;
+}
+
+/* Message menu */
+html:not([data-reduce-motion="true"]) .message-menu {
+  animation: nova-message-menu-pop 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+html:not([data-reduce-motion="true"]) .message-menu button:nth-child(1) { animation: nova-fade-up 0.2s ease 0.02s both; }
+html:not([data-reduce-motion="true"]) .message-menu button:nth-child(2) { animation: nova-fade-up 0.2s ease 0.05s both; }
+html:not([data-reduce-motion="true"]) .message-menu button:nth-child(3) { animation: nova-fade-up 0.2s ease 0.08s both; }
+html:not([data-reduce-motion="true"]) .message-menu button:nth-child(n+4) { animation: nova-fade-up 0.2s ease 0.11s both; }
+
+/* Voice playing */
+html:not([data-reduce-motion="true"]) .voice-message--playing .voice-message-play {
+  animation: nova-voice-play-pulse 1.4s ease-in-out infinite;
+}
+
+/* Search focus */
+html:not([data-reduce-motion="true"]) .sidebar-search:focus {
+  animation: nova-search-focus-ring 0.6s ease;
+}
+
+/* Emoji bar subtle shimmer on footer focus */
+html:not([data-reduce-motion="true"]) .chat-footer--emoji-focus .chat-quick-emoji-bar {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--accent) 6%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: nova-emoji-bar-shimmer 2.5s ease infinite;
+  border-radius: 10px;
+}
+
+/* Large emoji send bounce */
+html:not([data-reduce-motion="true"]) .message-bubble-large-emoji.message-in {
+  animation: nova-bounce-in 0.45s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+/* Sticker picker dock */
+html:not([data-reduce-motion="true"]) .sticker-picker-dock {
+  animation: nova-slide-up-bar 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Photo viewer controls */
+html:not([data-reduce-motion="true"]) .photo-viewer-toolbar button:hover {
+  transform: scale(1.08);
+  transition: transform 0.15s ease;
+}
+
+/* Admin panel rows */
+html:not([data-reduce-motion="true"]) .admin-user-row {
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+html:not([data-reduce-motion="true"]) .admin-user-row:hover {
+  transform: translateX(3px);
+}
+
+/* Nova toast stack bounce for celebrate */
+html:not([data-reduce-motion="true"]) .nova-toast--celebrate .nova-toast-inner {
+  animation: nova-bounce-in 0.4s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+/* Chat history top loader */
+html:not([data-reduce-motion="true"]) .chat-history-top {
+  animation: nova-fade-in 0.3s ease;
+}
+
+/* Bot command slash button */
+html:not([data-reduce-motion="true"]) .chat-footer-bot-cmd:hover {
+  transform: rotate(-8deg) scale(1.08);
+  transition: transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+/* Chat search modal */
+html:not([data-reduce-motion="true"]) .chat-search {
+  animation: nova-scale-spring 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html:not([data-reduce-motion="true"]) .chat-search-row {
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+html:not([data-reduce-motion="true"]) .chat-search-row:hover {
+  transform: translateX(4px);
+}

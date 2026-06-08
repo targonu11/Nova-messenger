@@ -1,0 +1,15 @@
+{
+  "name": "nova",
+  "private": true,
+  "description": "Nova messenger - run server and client together",
+  "scripts": {
+    "start": "node launcher.js",
+    "start:server": "node server/index.js",
+    "start:client": "npm run dev --prefix client",
+    "start:electron": "npm run electron:dev --prefix client",
+    "start:linux": "bash ./start-nova-linux.sh",
+    "setup:fedora": "bash ./scripts/setup-fedora.sh",
+    "start:macos": "bash ./start-nova-macos.sh",
+    "setup:macos": "bash ./scripts/setup-macos.sh"
+  }
+}

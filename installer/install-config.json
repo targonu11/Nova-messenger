@@ -1,0 +1,13 @@
+{
+  "_comment": "Укажите ссылку, по которой другой ПК скачает установщик. После build-web-installer.bat загрузите файлы из installer/releases/ на хостинг.",
+  "version": "1.1.0",
+  "mode": "setup",
+  "downloadUrl": "https://ВАШ-СЕРВЕР/nova/Nova-Setup-1.1.0.exe",
+  "portableZipUrl": "https://ВАШ-СЕРВЕР/nova/nova-portable-1.1.0.zip",
+  "setupFileName": "Nova-Setup-1.1.0.exe",
+  "portableZipFileName": "nova-portable-1.1.0.zip",
+  "installDir": "%LOCALAPPDATA%\\Nova",
+  "createDesktopShortcut": true,
+  "runAfterInstall": true,
+  "silentSetup": true
+}

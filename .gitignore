@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Build outputs
+dist/
+build/
+*/dist/
+*/build/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+бекап*.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Electron
+release/
+out/
+
+# Android
+android/
+*.apk
+*.aab
+
+# iOS
+ios/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

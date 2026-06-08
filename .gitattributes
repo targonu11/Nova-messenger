@@ -1,0 +1,2 @@
+# Скрипты для Linux/macOS — перевод строк LF
+*.sh text eol=lf

@@ -1,0 +1,12 @@
+{
+  "version": "1.1.0",
+  "mode": "setup",
+  "downloadUrl": "",
+  "portableZipUrl": "",
+  "setupFileName": "Nova-Setup-1.1.0.exe",
+  "portableZipFileName": "nova-portable-1.1.0.zip",
+  "installDir": "%LOCALAPPDATA%\\Nova",
+  "createDesktopShortcut": true,
+  "runAfterInstall": true,
+  "silentSetup": true
+}

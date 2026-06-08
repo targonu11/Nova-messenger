@@ -1,0 +1,359 @@
+/* Nova — звонки и голосовые: анимации */
+
+@keyframes call-ring-wave-expand {
+  0% { transform: scale(0.85); opacity: 0.75; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+@keyframes call-overlay-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to { opacity: 1; backdrop-filter: blur(8px); }
+}
+
+@keyframes call-incoming-slide {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes call-answer-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 200, 83, 0.55); transform: scale(1); }
+  50% { box-shadow: 0 0 0 16px rgba(0, 200, 83, 0); transform: scale(1.06); }
+}
+
+@keyframes call-decline-shake {
+  0%, 100% { transform: scale(1); }
+  30% { transform: scale(1.08); }
+  60% { transform: scale(0.96); }
+}
+
+@keyframes call-tile-connect {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes call-status-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes call-outgoing-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+@keyframes call-minimized-pulse {
+  0%, 100% { box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3); }
+  50% { box-shadow: 0 -2px 16px color-mix(in srgb, var(--accent) 35%, transparent); }
+}
+
+@keyframes voice-msg-enter {
+  from { opacity: 0; transform: translateX(-8px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes voice-msg-enter-own {
+  from { opacity: 0; transform: translateX(8px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes voice-record-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, #e53935 45%, transparent); }
+  50% { box-shadow: 0 0 0 10px transparent; }
+}
+
+@keyframes voice-record-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+@keyframes voice-play-ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
+  100% { box-shadow: 0 0 0 12px transparent; }
+}
+
+@keyframes call-sidebar-btn-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+/* ── Incoming call overlay ── */
+html:not([data-reduce-motion="true"]) .call-overlay-telegram:not(.call-active) {
+  animation: call-overlay-in 0.35s ease;
+}
+
+html:not([data-reduce-motion="true"]) .call-incoming-telegram {
+  animation: call-incoming-slide 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.call-ring--multi {
+  position: relative;
+}
+
+.call-ring-wave {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 200, 83, 0.45);
+  pointer-events: none;
+}
+
+html:not([data-reduce-motion="true"]) .call-ring-wave--1 {
+  animation: call-ring-wave-expand 2s ease-out infinite;
+}
+
+html:not([data-reduce-motion="true"]) .call-ring-wave--2 {
+  animation: call-ring-wave-expand 2s ease-out infinite 0.65s;
+}
+
+html:not([data-reduce-motion="true"]) .call-ring-wave--3 {
+  animation: call-ring-wave-expand 2s ease-out infinite 1.3s;
+}
+
+html:not([data-reduce-motion="true"]) .call-btn-answer {
+  animation: call-answer-pulse 1.4s ease-in-out infinite;
+}
+
+html:not([data-reduce-motion="true"]) .call-btn-decline:hover {
+  animation: call-decline-shake 0.35s ease;
+}
+
+/* ── Active call ── */
+.call-active-header {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.call-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00c853;
+  flex-shrink: 0;
+}
+
+html:not([data-reduce-motion="true"]) .call-status-dot {
+  animation: call-status-blink 1.6s ease-in-out infinite;
+}
+
+html:not([data-reduce-motion="true"]) .call-status-dot--waiting {
+  background: #ffb300;
+  animation: call-outgoing-pulse 1.2s ease-in-out infinite;
+}
+
+html:not([data-reduce-motion="true"]) .call-tile--connected {
+  animation: call-tile-connect 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html:not([data-reduce-motion="true"]) .call-tile-waiting {
+  animation: call-outgoing-pulse 1.5s ease-in-out infinite;
+}
+
+html:not([data-reduce-motion="true"]) .call-overlay-telegram.call-active {
+  animation: call-overlay-in 0.3s ease;
+}
+
+html:not([data-reduce-motion="true"]) .call-minimized-bar {
+  animation: call-minimized-pulse 2.5s ease-in-out infinite;
+}
+
+html:not([data-reduce-motion="true"]) .call-sidebar-btn:active {
+  animation: call-sidebar-btn-pop 0.25s ease;
+}
+
+html:not([data-reduce-motion="true"]) .call-sidebar-mic.muted {
+  animation: call-decline-shake 0.4s ease;
+}
+
+/* ── Voice messages ── */
+html:not([data-reduce-motion="true"]) .voice-message--enter {
+  animation: voice-msg-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html:not([data-reduce-motion="true"]) .voice-message-own.voice-message--enter {
+  animation: voice-msg-enter-own 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html:not([data-reduce-motion="true"]) .chat-footer-voice--recording {
+  animation: voice-record-pulse 1.4s ease-in-out infinite;
+  border-radius: 12px;
+}
+
+html:not([data-reduce-motion="true"]) .chat-footer-voice--recording .chat-footer-voice-dot {
+  animation: voice-record-dot 1s ease-in-out infinite;
+}
+
+html:not([data-reduce-motion="true"]) .voice-message--playing .voice-message-play {
+  animation: voice-play-ring 1.2s ease-out infinite;
+}
+
+html:not([data-reduce-motion="true"]) .voice-message--playing .voice-message-progress-fill {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.55),
+    rgba(255, 255, 255, 0.25),
+    rgba(255, 255, 255, 0.55)
+  );
+  background-size: 200% 100%;
+  animation: nova-emoji-bar-shimmer 1.8s ease infinite;
+}
+
+html:not([data-reduce-motion="true"]) .btn-voice:active {
+  transform: scale(0.92);
+  transition: transform 0.12s ease;
+}
+
+html:not([data-reduce-motion="true"]) .btn-send-voice {
+  animation: call-answer-pulse 1.6s ease-in-out infinite;
+}
+
+/* ── Outgoing call ── */
+.call-ring--outgoing {
+  box-shadow: 0 0 0 0 rgba(88, 101, 242, 0.45);
+  animation: call-ring-pulse-outgoing 1.8s ease-out infinite;
+}
+
+@keyframes call-ring-pulse-outgoing {
+  0% { box-shadow: 0 0 0 0 rgba(88, 101, 242, 0.5); }
+  70% { box-shadow: 0 0 0 22px rgba(88, 101, 242, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(88, 101, 242, 0); }
+}
+
+.call-ring-wave--outgoing {
+  border-color: rgba(88, 101, 242, 0.4);
+}
+
+html:not([data-reduce-motion="true"]) .call-ring-wave--outgoing.call-ring-wave--1 {
+  animation: call-ring-wave-expand 2.2s ease-out infinite;
+}
+
+html:not([data-reduce-motion="true"]) .call-ring-wave--outgoing.call-ring-wave--2 {
+  animation: call-ring-wave-expand 2.2s ease-out infinite 0.7s;
+}
+
+html:not([data-reduce-motion="true"]) .call-panel-outgoing {
+  animation: call-overlay-in 0.35s ease;
+}
+
+html:not([data-reduce-motion="true"]) .call-outgoing-telegram {
+  animation: call-incoming-slide 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.call-outgoing-dots {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 28px;
+}
+
+.call-outgoing-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+html:not([data-reduce-motion="true"]) .call-outgoing-dots span {
+  animation: call-outgoing-dot 1.2s ease-in-out infinite;
+}
+
+html:not([data-reduce-motion="true"]) .call-outgoing-dots span:nth-child(2) { animation-delay: 0.15s; }
+html:not([data-reduce-motion="true"]) .call-outgoing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes call-outgoing-dot {
+  0%, 100% { opacity: 0.35; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-4px); }
+}
+
+html:not([data-reduce-motion="true"]) .call-btn-cancel-outgoing {
+  animation: call-decline-shake 0.5s ease 2;
+}
+
+/* Speaking indicator */
+html:not([data-reduce-motion="true"]) .call-tile--speaking {
+  box-shadow: 0 0 0 2px rgba(0, 200, 83, 0.55), 0 0 24px rgba(0, 200, 83, 0.2);
+  animation: call-tile-speaking 0.8s ease-in-out infinite;
+}
+
+@keyframes call-tile-speaking {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(0, 200, 83, 0.45), 0 0 16px rgba(0, 200, 83, 0.15); }
+  50% { box-shadow: 0 0 0 3px rgba(0, 200, 83, 0.7), 0 0 28px rgba(0, 200, 83, 0.28); }
+}
+
+.call-tile-speaking-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  background: rgba(0, 200, 83, 0.25);
+  color: #b9f6ca;
+  vertical-align: middle;
+}
+
+html:not([data-reduce-motion="true"]) .call-tile-speaking-badge {
+  animation: call-status-blink 1.4s ease-in-out infinite;
+}
+
+/* Voice cancel + live transcript */
+.btn-voice-cancel {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(229, 57, 53, 0.85);
+  color: #fff;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.btn-voice-cancel:hover {
+  background: #e53935;
+  transform: scale(1.08);
+}
+
+html:not([data-reduce-motion="true"]) .btn-voice-cancel:active {
+  animation: call-decline-shake 0.3s ease;
+}
+
+html:not([data-reduce-motion="true"]) .chat-footer-voice-transcript--live {
+  animation: voice-transcript-live 0.35s ease;
+}
+
+@keyframes voice-transcript-live {
+  from { opacity: 0; transform: translateY(4px); max-width: 0; }
+  to { opacity: 0.85; transform: translateY(0); max-width: 140px; }
+}
+
+html:not([data-reduce-motion="true"]) .voice-message-transcript-block {
+  animation: voice-transcript-reveal 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes voice-transcript-reveal {
+  from { opacity: 0; transform: translateY(8px); max-height: 0; }
+  to { opacity: 1; transform: translateY(0); max-height: 200px; }
+}
+
+html:not([data-reduce-motion="true"]) .call-end-dialog {
+  animation: nova-scale-spring 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html:not([data-reduce-motion="true"]) .call-end-dialog-overlay {
+  animation: call-overlay-in 0.25s ease;
+}

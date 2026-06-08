@@ -1,0 +1,295 @@
+/* Nova — тёмная тема по умолчанию (фирменные #7812e4 ↔ #d6872d) */
+:root,
+[data-theme="dark"] {
+  --brand-purple: #7812e4;
+  --brand-orange: #d6872d;
+  --brand-mid: #a74c89;
+  --bg-primary: #0a090c;
+  --bg-secondary: #110f14;
+  --bg-tertiary: #1a1522;
+  --bg-hover: #252028;
+  --bg-active: #2e2834;
+  --accent: var(--brand-purple);
+  --accent-warm: var(--brand-orange);
+  --accent-mid: var(--brand-mid);
+  --accent-hover: #9638f0;
+  --accent-soft: rgba(120, 18, 228, 0.18);
+  --accent-gradient: linear-gradient(135deg, #7812e4 0%, #a74c89 52%, #d6872d 100%);
+  --accent-gradient-v: linear-gradient(180deg, #7812e4 0%, #a74c89 55%, #d6872d 100%);
+  --accent-gradient-hover: linear-gradient(135deg, #9638f0 0%, #b85a9a 52%, #e09945 100%);
+  --accent-glow: rgba(120, 18, 228, 0.32);
+  --accent-glow-warm: rgba(214, 135, 45, 0.24);
+  --accent-green: #34c759;
+  --accent-red: #ff453a;
+  --text-primary: #f0f0f2;
+  --text-secondary: #a8a8ae;
+  --text-muted: #6b6b72;
+  --border: #2a2a2e;
+  --border-light: #3a3a40;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.2);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-full: 9999px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --transition: 0.2s ease;
+}
+
+/* Светлая тема */
+[data-theme="light"] {
+  --brand-purple: #7812e4;
+  --brand-orange: #d6872d;
+  --brand-mid: #a74c89;
+  --bg-primary: #f7f5fa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #ece8f2;
+  --bg-hover: #e4dfea;
+  --bg-active: #d8d2e0;
+  --accent: var(--brand-purple);
+  --accent-warm: var(--brand-orange);
+  --accent-mid: var(--brand-mid);
+  --accent-hover: #6510c4;
+  --accent-soft: rgba(120, 18, 228, 0.12);
+  --accent-gradient: linear-gradient(135deg, #7812e4 0%, #a74c89 52%, #d6872d 100%);
+  --accent-gradient-v: linear-gradient(180deg, #7812e4 0%, #a74c89 55%, #d6872d 100%);
+  --accent-gradient-hover: linear-gradient(135deg, #6510c4 0%, #9a4580 52%, #c97a28 100%);
+  --accent-glow: rgba(120, 18, 228, 0.22);
+  --accent-glow-warm: rgba(214, 135, 45, 0.18);
+  --accent-green: #16a34a;
+  --accent-red: #dc2626;
+  --text-primary: #1c1c1e;
+  --text-secondary: #636366;
+  --text-muted: #8e8e93;
+  --border: #d1d1d6;
+  --border-light: #c7c7cc;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  /* !important перебивает inline fallback из index.html, чтобы тема из CSS переменных применилась после загрузки */
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  font-size: var(--app-font-size, 16px);
+  line-height: 1.5;
+}
+
+#root {
+  min-height: 100%;
+  height: 100%;
+}
+
+.app-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: background var(--transition), color var(--transition), transform 0.15s ease;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+input, textarea {
+  font-family: inherit;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+input:focus-visible, textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--bg-secondary, var(--bg-primary));
+}
+
+.avatar-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--bg-secondary, var(--bg-primary));
+}
+
+.avatar-lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--bg-secondary, var(--bg-primary));
+}
+
+.avatar-xl {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-tertiary);
+  border: 3px solid var(--bg-secondary, var(--bg-primary));
+}
+
+.avatar-ring-wrap {
+  display: inline-flex;
+  border-radius: 50%;
+  flex-shrink: 0;
+  vertical-align: middle;
+  line-height: 0;
+}
+
+.avatar-ring-wrap--sm { padding: 2px; }
+.avatar-ring-wrap--md { padding: 3px; }
+.avatar-ring-wrap--lg { padding: 3px; }
+.avatar-ring-wrap--xl { padding: 4px; }
+
+.avatar-ring-wrap .avatar,
+.avatar-ring-wrap .avatar-sm,
+.avatar-ring-wrap .avatar-lg,
+.avatar-ring-wrap .avatar-xl {
+  border: 2px solid var(--bg-secondary, var(--bg-primary));
+  box-sizing: border-box;
+}
+
+.avatar-ring-wrap--xl .avatar-xl {
+  border-width: 3px;
+}
+
+.avatar-ring--nova { background: var(--accent-gradient); }
+.avatar-ring--purple { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.avatar-ring--orange { background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%); }
+.avatar-ring--white { background: linear-gradient(135deg, #ffffff 0%, #e8e8ec 100%); }
+.avatar-ring--blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+.avatar-ring--pink { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.avatar-ring--rainbow {
+  background: conic-gradient(from 180deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #9b59b6, #ff6b6b);
+}
+
+.avatar-with-presence {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.avatar-with-presence > img {
+  display: block;
+}
+
+.avatar-presence-dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 2px solid var(--bg-secondary, #2b2d31);
+  pointer-events: none;
+}
+
+.avatar-with-presence--sm .avatar-presence-dot {
+  width: 10px;
+  height: 10px;
+}
+
+.avatar-with-presence--md .avatar-presence-dot {
+  width: 12px;
+  height: 12px;
+}
+
+.avatar-with-presence--lg .avatar-presence-dot {
+  width: 14px;
+  height: 14px;
+}
+
+.avatar-with-presence--xl .avatar-presence-dot {
+  width: 16px;
+  height: 16px;
+}
+
+.avatar-presence-dot--online {
+  background: #3ba55d;
+  box-shadow: 0 0 6px rgba(59, 165, 93, 0.45);
+}
+
+.avatar-presence-dot--offline {
+  background: #5c5e66;
+}
+
+.avatar-presence-dot--dnd {
+  background: #e53935;
+  box-shadow: 0 0 6px rgba(229, 57, 53, 0.45);
+}
+
+.avatar-presence-dot--idle {
+  background: #f9a825;
+  box-shadow: 0 0 6px rgba(249, 168, 37, 0.4);
+}
+
+/* Модальные оверлеи */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+
+.modal-overlay .modal {
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+}
+
+/* Поверх уведомлений (10000) и мини-панели звонка (998) — клики не перехватываются чужими слоями */
+.modal-overlay.modal-overlay-priority {
+  z-index: 11000;
+}
+
+/* Скроллбары */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

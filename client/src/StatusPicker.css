@@ -1,0 +1,223 @@
+.status-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.status-picker-modal {
+  width: min(380px, 96vw);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 16px 18px 18px;
+}
+
+.status-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.status-picker-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.status-picker-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.status-picker-presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.status-picker-preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.status-picker-preset:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.status-picker-preset-emoji {
+  font-size: 1.1rem;
+  width: 1.4rem;
+  text-align: center;
+}
+
+.status-picker-custom {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.status-picker-emoji-input {
+  width: 52px;
+  flex-shrink: 0;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.status-picker-text-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.status-picker-error {
+  margin: 0 0 10px;
+  color: var(--accent-red, #e53935);
+  font-size: 0.82rem;
+}
+
+.status-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.status-picker-btn {
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  border: none;
+}
+
+.status-picker-btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.status-picker-btn-primary {
+  background: var(--accent-gradient-v, var(--accent));
+  color: #fff;
+}
+
+.status-picker-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.chat-header-presence--custom {
+  color: var(--accent-warm, var(--accent));
+}
+
+.status-picker-overlay--compact {
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: calc(52px + var(--safe-top, 0px)) 12px 12px 12px;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+}
+
+@media (min-width: 721px) {
+  .status-picker-overlay--compact {
+    padding-left: calc(72px + var(--sidebar-width, 300px) + 8px);
+  }
+}
+
+.status-picker-modal--compact {
+  width: min(248px, calc(100vw - 24px));
+  padding: 10px 12px 12px;
+  border-radius: 10px;
+}
+
+.status-picker-modal--compact .status-picker-header {
+  margin-bottom: 8px;
+}
+
+.status-picker-modal--compact .status-picker-header h3 {
+  font-size: 0.85rem;
+}
+
+.status-picker-modal--compact .status-picker-close {
+  width: 24px;
+  height: 24px;
+  font-size: 1.1rem;
+}
+
+.status-picker-modal--compact .status-picker-presets {
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.status-picker-modal--compact .status-picker-preset {
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  gap: 4px;
+}
+
+.status-picker-modal--compact .status-picker-preset-emoji {
+  font-size: 0.9rem;
+  width: 1.1rem;
+}
+
+.status-picker-modal--compact .status-picker-custom {
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.status-picker-modal--compact .status-picker-emoji-input {
+  width: 40px;
+  padding: 6px;
+  font-size: 1rem;
+  border-radius: 8px;
+}
+
+.status-picker-modal--compact .status-picker-text-input {
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+
+.status-picker-modal--compact .status-picker-btn {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  border-radius: 8px;
+}
+

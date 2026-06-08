@@ -1,0 +1,96 @@
+.profile-connections {
+  margin-top: 8px;
+}
+
+.profile-connections-hint {
+  margin-bottom: 12px;
+}
+
+.profile-connections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-connection-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.profile-connection-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-connection-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.profile-connection-linked {
+  font-size: 0.82rem;
+  color: var(--text-muted, #949ba4);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-connection-verified {
+  color: #3ba55d;
+  font-weight: 700;
+}
+
+.profile-connection-unlinked {
+  font-size: 0.82rem;
+  color: var(--text-muted, #949ba4);
+}
+
+.profile-connection-actions {
+  flex-shrink: 0;
+}
+
+.profile-connection-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-connection-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile-connection-btn--primary {
+  background: var(--accent, #5865f2);
+  color: #fff;
+}
+
+.profile-connection-btn--danger {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text, #fff);
+}
+
+.profile-connections-refresh {
+  margin-top: 10px;
+  background: none;
+  border: none;
+  color: var(--accent, #5865f2);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.profile-social-section--manual {
+  margin-top: 18px;
+}

@@ -1,0 +1,33 @@
+.nova-confetti-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 13000;
+  overflow: hidden;
+}
+
+.nova-confetti-burst {
+  position: absolute;
+  inset: 0;
+}
+
+.nova-confetti-piece {
+  position: absolute;
+  border-radius: 2px;
+  animation: nova-confetti-burst 1.8s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+html[data-reduce-motion="true"] .nova-confetti-piece {
+  display: none;
+}
+
+@keyframes nova-confetti-burst {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(0.4);
+  }
+}
