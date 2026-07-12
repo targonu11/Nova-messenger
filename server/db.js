@@ -281,15 +281,6 @@ export async function initDb() {
       dbInstance.exec('ALTER TABLE users ADD COLUMN selected_badge_id TEXT');
       console.log('Added selected_badge_id column to users table');
     }
-    // Верификация и баны
-    if (!userCols.includes('is_verified')) {
-      dbInstance.exec('ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0');
-      console.log('Added is_verified column to users table');
-    }
-    if (!userCols.includes('ban_until')) {
-      dbInstance.exec('ALTER TABLE users ADD COLUMN ban_until INTEGER');
-      console.log('Added ban_until column to users table');
-    }
     if (!userCols.includes('cover_path')) {
       dbInstance.exec('ALTER TABLE users ADD COLUMN cover_path TEXT');
       console.log('Added cover_path column to users table');

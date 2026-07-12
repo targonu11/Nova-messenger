@@ -1,19 +1,28 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, useReducer } from 'react';
 import { useSocket } from './SocketContext';
-import { getMessages, searchMessages, getUsers, getPresence, avatarUrl, uploadVoice, uploadAttachment, getBotCommands } from './api';
+import { getMessages, searchMessages, getUsers, getPresence, avatarUrl, uploadVoice, uploadAttachment, getBotCommands, getGroupMembers, getStarredMessages, getPresenceBatch, translateText } from './api';
 import { resolveBotUserId } from './botChat';
 import { ensureKeyPair, encryptForPeer, decryptFromPeer } from './e2e';
 import { useCall, getAudioConstraintsForMic } from './useCall';
 import { getGroupBackgroundStyle } from './groupBackgrounds';
-import { t } from './i18n';
+import { t, getStoredLang } from './i18n';
 import { pickImageFromGallery } from './pickGalleryImage';
 import { isMediaCallSupportedInThisPage } from './secureMedia';
 import { getEnableMessageReactions, getSendByEnter, getPrivacyReadReceipts, getEnableLargeEmoji, getBatteryGifAutoplay, getAppSettings } from './appSettings';
 import { ChatDmProfilePanel, ChatGroupProfilePanel } from './ChatProfileTopPanel';
 import { isLargeEmojiText, QUICK_REACTIONS, reactionsFromGrouped, toggleReactionLocal, reactionIsActive } from './messageEmoji';
-import { MessageFormattedText } from './messageFormat';
+import { MessageFormattedText, wrapInputSelection } from './messageFormat';
+import FormatToolbar from './FormatToolbar';
+import MentionSuggest, { getMentionQuery, insertMention } from './MentionSuggest';
+import EmojiSuggest from './EmojiSuggest';
+import { getEmojiQuery, insertEmojiShortcode, filterEmojiShortcodes } from './emojiShortcodes';
+import LinkPreview from './LinkPreview';
+import PollMessage from './PollMessage';
+import MembersPanel, { nameColor } from './MembersPanel';
+import { filterBuiltinSlash, resolveBuiltinSlash } from './builtinSlash';
+import { addScheduledMessage, getScheduledForChat, removeScheduledMessage } from './scheduledMessages';
+import { isChatMuted, toggleChatMuted, setChatMuted as persistChatMuted } from './chatMute';
 import { loadDraft, saveDraft } from './chatDrafts';
-import { isChatMuted, toggleChatMuted } from './chatMute';
 import UserProfile from './UserProfile';
 import GroupEdit from './GroupEdit';
 import { VoiceMessage } from './VoiceMessage';
@@ -29,7 +38,11 @@ import { createDoubleTapHandler } from './novaMotion';
 import { playSendSound, playReactionSound, playNewMessageSound } from './useNotificationSound';
 import { playVoiceRecordStart, playVoiceSend, playVoiceRecordCancel } from './useCallSounds';
 import QuickEmojiBar from './QuickEmojiBar';
+import MessageFxBar from './MessageFxBar';
+import ImbaChatEffects from './ImbaChatEffects';
+import { parseMessageFx, getMessageFx, displayMessageContent, SCREEN_SHAKE_FX, SCREEN_FLASH_FX, CONFETTI_FX, STARFALL_FX, rollCriticalHit, isMessageCritical, FX_HOTKEYS, comboTierLabel } from './messageFx';
 import { getNotificationsPlaySound } from './appSettings';
+import { burstNovaConfetti } from './NovaConfetti';
 import { StickerPicker, MessageSticker } from './StickerPicker';
 import { showNovaToastInfo } from './NovaToast';
 import StickerPackPreview from './StickerPackPreview';
@@ -37,9 +50,22 @@ import BotCommandMenu, { filterBotCommands } from './BotCommandMenu';
 import './ChatView.css';
 import './StickerPicker.css';
 import './BotCommandMenu.css';
+import './MembersPanel.css';
 
 function formatDateDay(createdAt) {
   return new Date(createdAt * 1000).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+const MESSAGE_GROUP_GAP_SEC = 7 * 60;
+
+function isMessageGrouped(m, prev, showDate) {
+  if (!prev || showDate) return false;
+  if (!m || m.isDeleted || prev.isDeleted) return false;
+  if (m.messageType === 'action' || m.messageType === 'call_ended') return false;
+  if (prev.messageType === 'action' || prev.messageType === 'call_ended') return false;
+  if (String(m.senderId) !== String(prev.senderId)) return false;
+  const gap = (Number(m.createdAt) || 0) - (Number(prev.createdAt) || 0);
+  return gap >= 0 && gap <= MESSAGE_GROUP_GAP_SEC;
 }
 
 function formatCallDuration(sec) {
@@ -283,6 +309,7 @@ export default function ChatView({
   onOpenUserChat,
   chatListMode = 'full',
   onCycleChatList,
+  initialUnreadCount = 0,
 }) {
   const { socket, connected } = useSocket();
   const [messages, setMessages] = useState([]);
@@ -307,6 +334,25 @@ export default function ChatView({
   const [chatEntering, setChatEntering] = useState(true);
   const [sendBurst, setSendBurst] = useState(false);
   const [floatingHearts, setFloatingHearts] = useState(() => new Set());
+  const [selectedFx, setSelectedFx] = useState(null);
+  const [fxSticky, setFxSticky] = useState(false);
+  const [chatMood, setChatMood] = useState(null);
+  const [imbaStarfall, setImbaStarfall] = useState(false);
+  const [imbaOverload, setImbaOverload] = useState(false);
+  const [imbaCombo, setImbaCombo] = useState(null);
+  const [imbaMega, setImbaMega] = useState(null);
+  const [imbaStreak, setImbaStreak] = useState(null);
+  const [imbaShakeToken, setImbaShakeToken] = useState(0);
+  const [imbaFlash, setImbaFlash] = useState(null);
+  const [imbaRain, setImbaRain] = useState(false);
+  const [imbaCritToast, setImbaCritToast] = useState(null);
+  const [sendCharging, setSendCharging] = useState(false);
+  const [vanishingIds, setVanishingIds] = useState(() => new Set());
+  const reactionComboRef = useRef({ count: 0, at: 0 });
+  const sendStreakRef = useRef({ count: 0, at: 0 });
+  const lastFxHandledRef = useRef(null);
+  const chargeTimerRef = useRef(null);
+  const chargeArmedRef = useRef(false);
   const doubleTapHandlerRef = useRef(null);
   const reactDoubleTapRef = useRef(null);
   const flashMessage = useCallback((id) => {
@@ -315,6 +361,46 @@ export default function ChatView({
     setHighlightMsgId(sid);
     window.setTimeout(() => setHighlightMsgId(null), 1800);
   }, []);
+
+  const triggerImbaFx = useCallback((fx, critical = false) => {
+    if (!fx || getAppSettings().uiImbaFx === false) return;
+    const effective = critical && fx !== 'nova' ? fx : fx;
+    if (critical || fx === 'nova') {
+      setImbaShakeToken((n) => n + 1);
+      setImbaFlash(fx === 'nova' ? 'nova' : fx);
+      window.setTimeout(() => setImbaFlash(null), 650);
+      try { burstNovaConfetti({ count: critical || fx === 'nova' ? 90 : 50 }); } catch (_) { /* ignore */ }
+      if (critical) {
+        const id = `crit-${Date.now()}`;
+        setImbaCritToast({ id });
+        window.setTimeout(() => setImbaCritToast((c) => (c && c.id === id ? null : c)), 1150);
+      }
+    } else {
+      if (SCREEN_SHAKE_FX.has(fx)) setImbaShakeToken((n) => n + 1);
+      if (SCREEN_FLASH_FX.has(fx) || SCREEN_SHAKE_FX.has(fx)) {
+        setImbaFlash(fx);
+        window.setTimeout(() => setImbaFlash(null), 560);
+      }
+      if (CONFETTI_FX.has(fx)) {
+        try { burstNovaConfetti({ count: fx === 'party' || fx === 'rainbow' ? 70 : 40 }); } catch (_) { /* ignore */ }
+      }
+    }
+    if (fx === 'wave' || fx === 'ice' || fx === 'thunder' || fx === 'blizzard') {
+      setImbaRain(true);
+      window.setTimeout(() => setImbaRain(false), 2200);
+    }
+    if (STARFALL_FX.has(fx)) {
+      setImbaStarfall(true);
+      window.setTimeout(() => setImbaStarfall(false), 2400);
+    }
+    if (critical || fx === 'nova' || fx === 'quake') {
+      setImbaOverload(true);
+      window.setTimeout(() => setImbaOverload(false), 1800);
+    }
+    void effective;
+  }, []);
+  const triggerImbaFxRef = useRef(triggerImbaFx);
+  triggerImbaFxRef.current = triggerImbaFx;
   const markReactionPop = useCallback((messageId, emoji) => {
     const key = `${messageId}:${emoji}`;
     setPoppingReactions((prev) => {
@@ -386,6 +472,28 @@ export default function ChatView({
   const [typingUsers, setTypingUsers] = useState({});
   const [peerLastReadAt, setPeerLastReadAt] = useState(null);
   const [chatMuted, setChatMuted] = useState(false);
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [emojiIndex, setEmojiIndex] = useState(0);
+  const [muteMenuOpen, setMuteMenuOpen] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [showJumpDate, setShowJumpDate] = useState(false);
+  const [jumpDateValue, setJumpDateValue] = useState('');
+  const [showPollComposer, setShowPollComposer] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptionsText, setPollOptionsText] = useState('Да\nНет');
+  const [pollMulti, setPollMulti] = useState(false);
+  const [showScheduleComposer, setShowScheduleComposer] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState('');
+  const [scheduledList, setScheduledList] = useState([]);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [showStarredPanel, setShowStarredPanel] = useState(false);
+  const [starredList, setStarredList] = useState([]);
+  const [starredLoading, setStarredLoading] = useState(false);
+  const [showMembersPanel, setShowMembersPanel] = useState(false);
+  const [memberPresence, setMemberPresence] = useState({});
+  const [msgTranslations, setMsgTranslations] = useState({});
   const [photoViewer, setPhotoViewer] = useState(null);
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
   const [chatSearchQ, setChatSearchQ] = useState('');
@@ -435,10 +543,39 @@ export default function ChatView({
     [isBotChat, botCommands, input]
   );
   const showBotCommandMenu = isBotChat && filteredBotCommands.length > 0;
+  const builtinSlashCommands = useMemo(
+    () => (!isBotChat ? filterBuiltinSlash(input) : []),
+    [isBotChat, input]
+  );
+  const showBuiltinSlash = !isBotChat && canPostInChat(peer, type, currentUser) && builtinSlashCommands.length > 0;
 
   useEffect(() => {
     setBotCmdIndex(0);
-  }, [input, filteredBotCommands.length]);
+    setSlashIndex(0);
+  }, [input, filteredBotCommands.length, builtinSlashCommands.length]);
+
+  useEffect(() => {
+    setMentionIndex(0);
+    setEmojiIndex(0);
+  }, [input]);
+
+  useEffect(() => {
+    setMuteMenuOpen(false);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setShowJumpDate(false);
+    setShowPollComposer(false);
+    setShowScheduleComposer(false);
+    setShowStarredPanel(false);
+    setShowMembersPanel(false);
+    setScheduledList(getScheduledForChat(recipientType, recipientId));
+  }, [recipientType, recipientId]);
+
+  useEffect(() => {
+    const sync = () => setScheduledList(getScheduledForChat(recipientType, recipientId));
+    window.addEventListener('nova-scheduled', sync);
+    return () => window.removeEventListener('nova-scheduled', sync);
+  }, [recipientType, recipientId]);
 
   useEffect(() => {
     if (type !== 'user' || !recipientId || String(recipientId) === String(currentUser?.id)) {
@@ -488,15 +625,33 @@ export default function ChatView({
 
   useEffect(() => {
     const onKey = (e) => {
-      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'f') return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        const tag = e.target?.tagName?.toLowerCase();
+        if (tag === 'input' && e.target?.classList?.contains('chat-search-input')) return;
+        e.preventDefault();
+        openChatSearch();
+        return;
+      }
       const tag = e.target?.tagName?.toLowerCase();
-      if (tag === 'input' && e.target?.classList?.contains('chat-search-input')) return;
-      e.preventDefault();
-      openChatSearch();
+      const inField = tag === 'input' || tag === 'textarea' || e.target?.isContentEditable;
+      if (e.key === 'Escape' && replyTo) {
+        e.preventDefault();
+        setReplyTo(null);
+        return;
+      }
+      if (!inField && (e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const last = [...messages].reverse().find((m) => !m.isDeleted && m.messageType !== 'call_ended');
+        if (last) {
+          e.preventDefault();
+          setReplyTo({ id: last.id, content: last.content || '', senderName: last.senderName });
+          setForwardMessage(null);
+          requestAnimationFrame(() => chatInputRef.current?.focus());
+        }
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [openChatSearch]);
+  }, [openChatSearch, replyTo, messages]);
 
   const appendQuickEmoji = useCallback((emoji) => {
     setInput((prev) => `${prev}${emoji}`);
@@ -531,10 +686,48 @@ export default function ChatView({
   const e2eKeysRef = useRef(null);
 
   const mentionUsers = useMemo(() => {
-    const list = [...(users || [])];
-    if (currentUser && !list.some((u) => u.id === currentUser.id)) list.push(currentUser);
-    return list;
-  }, [users, currentUser]);
+    const map = new Map();
+    (users || []).forEach((u) => { if (u?.id) map.set(String(u.id), u); });
+    (groupMembers || []).forEach((u) => { if (u?.id) map.set(String(u.id), { ...map.get(String(u.id)), ...u }); });
+    if (currentUser?.id) map.set(String(currentUser.id), { ...map.get(String(currentUser.id)), ...currentUser });
+    return [...map.values()];
+  }, [users, currentUser, groupMembers]);
+
+  useEffect(() => {
+    if (type !== 'group' || !recipientId) {
+      setGroupMembers([]);
+      return undefined;
+    }
+    let cancelled = false;
+    getGroupMembers(recipientId)
+      .then((rows) => {
+        if (cancelled) return;
+        const list = (Array.isArray(rows) ? rows : rows?.members || []).map((m) => ({
+          id: m.id || m.userId,
+          login: m.login,
+          displayName: m.displayName || m.display_name || m.login,
+          avatarPath: m.avatarPath || m.avatar_path,
+          role: m.role || m.memberRole || 'member',
+        })).filter((u) => u.id && u.login);
+        setGroupMembers(list);
+      })
+      .catch(() => { if (!cancelled) setGroupMembers([]); });
+    return () => { cancelled = true; };
+  }, [type, recipientId]);
+
+  useEffect(() => {
+    if (type !== 'group' || !showMembersPanel || !groupMembers.length) return undefined;
+    let cancelled = false;
+    const ids = groupMembers.map((m) => m.id).filter(Boolean).slice(0, 80);
+    if (!ids.length) return undefined;
+    getPresenceBatch(ids)
+      .then((data) => {
+        if (cancelled || !data) return;
+        setMemberPresence(data);
+      })
+      .catch(() => { if (!cancelled) setMemberPresence({}); });
+    return () => { cancelled = true; };
+  }, [type, showMembersPanel, groupMembers]);
 
   const imageGalleryUrls = useMemo(() => {
     return messages
@@ -595,6 +788,7 @@ export default function ChatView({
     lastReadMarkRef.current = 0;
     setChatMuted(isChatMuted(recipientType, recipientId));
     setPhotoViewer(null);
+    setMsgTranslations({});
   }, [recipientId, recipientType]);
 
   useEffect(() => {
@@ -640,15 +834,19 @@ export default function ChatView({
   }, [socket, type, recipientId]);
 
   useEffect(() => {
+    let id = null;
+    try {
+      id = sessionStorage.getItem('nova_scroll_msg');
+      if (id) sessionStorage.removeItem('nova_scroll_msg');
+    } catch {}
     const h = window.location.hash;
-    if (h.startsWith('#msg-')) {
-      const id = h.slice(5);
-      const t = setTimeout(() => {
-        document.getElementById(`chat-msg-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        flashMessage(id);
-      }, 400);
-      return () => clearTimeout(t);
-    }
+    if (!id && h.startsWith('#msg-')) id = h.slice(5);
+    if (!id) return undefined;
+    const t = setTimeout(() => {
+      document.getElementById(`chat-msg-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      flashMessage(id);
+    }, 400);
+    return () => clearTimeout(t);
   }, [recipientId, messages.length, flashMessage]);
 
   useEffect(() => {
@@ -844,6 +1042,11 @@ export default function ChatView({
         const withReactions = { ...next, reactions: next.reactions || {} };
         markMessageIn(withReactions.id);
         setMessages((prev) => (prev.some((m) => m.id === withReactions.id) ? prev : [...prev, withReactions]));
+        const fx = getMessageFx(withReactions);
+        if (fx && lastFxHandledRef.current !== withReactions.id) {
+          lastFxHandledRef.current = withReactions.id;
+          triggerImbaFxRef.current?.(fx, isMessageCritical(withReactions));
+        }
       };
       handle();
     };
@@ -903,10 +1106,17 @@ export default function ChatView({
       if (rt !== recipientType || String(rid) !== String(recipientId)) return;
       setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, starredMe: !!starred } : m));
     };
-    const onUpdated = ({ messageId, content, editedAt, recipientType: rt, recipientId: rid }) => {
-      if (rt !== recipientType || rid !== recipientId) return;
-      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, content, editedAt } : m));
-      if (editingMessageId === messageId) {
+    const onUpdated = ({ messageId, content, editedAt, messageMeta, recipientType: rt, recipientId: rid }) => {
+      if (rt !== recipientType || String(rid) !== String(recipientId)) return;
+      setMessages((prev) => prev.map((m) => {
+        if (m.id !== messageId) return m;
+        const next = { ...m };
+        if (content !== undefined) next.content = content;
+        if (editedAt !== undefined) next.editedAt = editedAt;
+        if (messageMeta !== undefined) next.messageMeta = messageMeta;
+        return next;
+      }));
+      if (editingMessageId === messageId && content !== undefined) {
         setEditingMessageId(null);
         setEditingContent('');
       }
@@ -1130,10 +1340,29 @@ export default function ChatView({
   const send = () => {
     if (!canPostInChat(peer, type, currentUser)) return;
     const isChannelChat = type === 'group' && isChannelGroup(peer);
-    const text = input.trim();
+    const rawText = input.trim();
     const isForward = forwardMessage != null;
     if (!socket || !recipientId) return;
-    if (!isForward && !text) return;
+    if (!isForward && !rawText) return;
+
+    if (!isForward) {
+      const slash = resolveBuiltinSlash(rawText);
+      if (slash.handled) {
+        if (slash.openPoll) {
+          setShowPollComposer(true);
+          setInput('');
+          return;
+        }
+        if (slash.openSchedule) {
+          setShowScheduleComposer(true);
+          setInput('');
+          return;
+        }
+        // replace input content with resolved slash result and continue
+        // (fall through with rewritten text)
+      }
+    }
+
     try {
       socket.emit('typing', { recipientType, recipientId, active: false });
     } catch {}
@@ -1143,12 +1372,65 @@ export default function ChatView({
     }
     if (sendingTimeoutRef.current) clearTimeout(sendingTimeoutRef.current);
     setSending(true);
+
+    const slash = !isForward ? resolveBuiltinSlash(rawText) : { handled: false };
+    const sourceText = slash.handled && slash.content != null ? slash.content : rawText;
+    const forcedType = slash.handled && slash.messageType ? slash.messageType : null;
+
+    const imbaOn = getAppSettings().uiImbaFx !== false && forcedType !== 'action';
+    let { fx, text: parsedText } = imbaOn
+      ? parseMessageFx(sourceText, selectedFx)
+      : { fx: null, text: sourceText };
+    let critical = false;
+    if (imbaOn) {
+      if (chargeArmedRef.current && !fx) fx = 'nova';
+      else if (chargeArmedRef.current && fx && fx !== 'nova') {
+        critical = true;
+      }
+      const rolled = rollCriticalHit(fx);
+      if (rolled.critical) {
+        fx = rolled.fx;
+        critical = true;
+      }
+      if (chargeArmedRef.current && fx === 'nova') critical = true;
+    }
+    chargeArmedRef.current = false;
+    setSendCharging(false);
+    const text = parsedText;
+
+    if (showScheduleComposer && scheduleAt) {
+      const at = new Date(scheduleAt).getTime();
+      if (Number.isFinite(at) && at > Date.now() + 5000) {
+        addScheduledMessage({
+          recipientType,
+          recipientId,
+          content: text,
+          messageType: forcedType,
+          messageMeta: fx ? { fx, ...(critical ? { critical: true } : {}) } : null,
+          replyToId: replyTo?.id || null,
+          sendAt: at,
+        });
+        setScheduledList(getScheduledForChat(recipientType, recipientId));
+        setShowScheduleComposer(false);
+        setScheduleAt('');
+        setInput('');
+        setReplyTo(null);
+        setSending(false);
+        showToast(t('scheduleQueued'));
+        return;
+      }
+    }
+
     const payload = {
       recipientType,
       recipientId,
       content: text,
       replyToId: replyTo?.id || undefined,
     };
+    if (forcedType) payload.messageType = forcedType;
+    if (fx) {
+      payload.messageMeta = { ...(payload.messageMeta || {}), fx, ...(critical ? { critical: true } : {}) };
+    }
     if (isForward) {
       payload.forwardFromId = forwardMessage.senderId;
       payload.forwardFromName = forwardMessage.senderName || '';
@@ -1161,7 +1443,20 @@ export default function ChatView({
     if (getNotificationsPlaySound()) playSendSound();
     setSendBurst(true);
     window.setTimeout(() => setSendBurst(false), 450);
+    if (fx) triggerImbaFx(fx, critical);
+    if (imbaOn) {
+      const now = Date.now();
+      const prev = sendStreakRef.current;
+      const nextCount = now - prev.at < 5000 ? prev.count + 1 : 1;
+      sendStreakRef.current = { count: nextCount, at: now };
+      if (nextCount >= 3) {
+        const id = `streak-${now}`;
+        setImbaStreak({ id, n: nextCount });
+        window.setTimeout(() => setImbaStreak((s) => (s && s.id === id ? null : s)), 1350);
+      }
+    }
     setInput('');
+    if (!fxSticky) setSelectedFx(null);
     saveDraft(recipientType, recipientId, '');
     setReplyTo(null);
     setForwardMessage(null);
@@ -1199,6 +1494,35 @@ export default function ChatView({
     if (!socket || !recipientId) return;
     if (getNotificationsPlaySound()) playReactionSound();
     markReactionPop(messageId, emoji);
+    if (getAppSettings().uiImbaFx !== false) {
+      const now = Date.now();
+      const prev = reactionComboRef.current;
+      const nextCount = now - prev.at < 1400 ? prev.count + 1 : 1;
+      reactionComboRef.current = { count: nextCount, at: now };
+      if (nextCount >= 2) {
+        const id = `${now}-${nextCount}`;
+        setImbaCombo({ id, n: nextCount, fx: emoji === '🔥' ? 'fire' : emoji === '❄️' ? 'ice' : 'party' });
+        window.setTimeout(() => {
+          setImbaCombo((c) => (c && c.id === id ? null : c));
+        }, 1100);
+        const tier = comboTierLabel(nextCount);
+        if (tier) {
+          const mid = `mega-${id}`;
+          setImbaMega({ id: mid, n: nextCount, tier: tier.toLowerCase(), label: tier });
+          window.setTimeout(() => setImbaMega((c) => (c && c.id === mid ? null : c)), 1350);
+          if (nextCount >= 7) {
+            try { burstNovaConfetti({ count: nextCount >= 10 ? 80 : 50 }); } catch (_) { /* ignore */ }
+            setImbaShakeToken((n) => n + 1);
+            setImbaOverload(true);
+            window.setTimeout(() => setImbaOverload(false), 2000);
+            if (nextCount >= 10) {
+              setImbaStarfall(true);
+              window.setTimeout(() => setImbaStarfall(false), 2500);
+            }
+          }
+        }
+      }
+    }
     setMessages((prev) => prev.map((m) => (
       String(m.id) === String(messageId)
         ? { ...m, reactions: toggleReactionLocal(m.reactions, emoji, currentUser?.id) }
@@ -1413,12 +1737,159 @@ export default function ChatView({
     setForwardSearch('');
   };
 
+  const toggleSelectId = useCallback((id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const jumpToDate = useCallback(async () => {
+    if (!recipientId || !jumpDateValue) return;
+    const ts = Math.floor(new Date(`${jumpDateValue}T12:00:00`).getTime() / 1000);
+    if (!Number.isFinite(ts)) return;
+    setShowJumpDate(false);
+    try {
+      const data = await getMessages(type, recipientId, { limit: 120, around: ts });
+      const list = data.messages || [];
+      setMessages(list);
+      setHasMoreHistory(data.hasMore !== false);
+      if (list.length) {
+        oldestCreatedAtRef.current = Math.min(...list.map((m) => m.createdAt || Infinity));
+      }
+      const focusId = data.aroundId || list[0]?.id;
+      if (focusId) {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            document.getElementById(`chat-msg-${focusId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            flashMessage(focusId);
+          }, 80);
+        });
+      }
+    } catch (e) {
+      showToast(t('jumpToDateFail'));
+    }
+  }, [recipientId, jumpDateValue, type, flashMessage, showToast]);
+
+  const sendPoll = useCallback(() => {
+    if (!socket || !recipientId || !canPost) return;
+    const question = pollQuestion.trim();
+    const options = pollOptionsText.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 10);
+    if (!question || options.length < 2) {
+      showToast(t('pollNeedOptions'));
+      return;
+    }
+    socket.emit('send_message', {
+      recipientType,
+      recipientId,
+      content: question,
+      messageType: 'poll',
+      messageMeta: { options, multi: pollMulti },
+    });
+    setShowPollComposer(false);
+    setPollQuestion('');
+    setPollOptionsText('Да\nНет');
+    setPollMulti(false);
+    playSendSound();
+  }, [socket, recipientId, canPost, pollQuestion, pollOptionsText, pollMulti, recipientType, showToast]);
+
+  const votePoll = useCallback((messageId, optionIndex) => {
+    socket?.emit('vote_poll', { messageId, optionIndex });
+  }, [socket]);
+
+  const batchCopySelected = useCallback(async () => {
+    const texts = messages
+      .filter((m) => selectedIds.has(m.id) && !m.isDeleted && m.content)
+      .map((m) => m.content);
+    if (!texts.length) return;
+    const ok = await copyToClipboard(texts.join('\n\n'));
+    showToast(ok ? t('copied') : '…');
+  }, [messages, selectedIds, showToast]);
+
+  const batchForwardSelected = useCallback(() => {
+    const first = messages.find((m) => selectedIds.has(m.id) && !m.isDeleted);
+    if (!first) return;
+    setForwardPickMessage(first);
+    setForwardPickerOpen(true);
+    exitSelectMode();
+  }, [messages, selectedIds, exitSelectMode]);
+
+  const batchStarSelected = useCallback(() => {
+    selectedIds.forEach((id) => {
+      socket?.emit('toggle_star', { messageId: id, recipientType, recipientId });
+    });
+    exitSelectMode();
+  }, [selectedIds, socket, recipientType, recipientId, exitSelectMode]);
+
+  const saveToSavedMessages = useCallback((m) => {
+    if (!socket || !currentUser?.id || !m) return;
+    socket.emit('send_message', {
+      recipientType: 'user',
+      recipientId: currentUser.id,
+      content: '',
+      forwardFromId: m.senderId,
+      forwardFromName: m.senderName || '',
+      forwardContent: m.content || '',
+      forwardAttachmentPath: m.attachmentPath || '',
+    });
+    showToast(t('savedToSaved'));
+  }, [socket, currentUser?.id, showToast]);
+
+  const translateMessage = useCallback(async (m) => {
+    const id = String(m.id);
+    const raw = displayMessageContent(m);
+    if (!raw || typeof raw !== 'string' || raw.startsWith('e2e:')) {
+      showToast(t('translateFail'));
+      return;
+    }
+    if (msgTranslations[id]?.text) {
+      setMsgTranslations((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      return;
+    }
+    setMsgTranslations((prev) => ({ ...prev, [id]: { loading: true } }));
+    try {
+      const to = getStoredLang() === 'en' ? 'en' : 'ru';
+      const data = await translateText(raw.slice(0, 4500), to);
+      setMsgTranslations((prev) => ({
+        ...prev,
+        [id]: { text: data.text || '', loading: false },
+      }));
+    } catch {
+      setMsgTranslations((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      showToast(t('translateFail'));
+    }
+  }, [msgTranslations, showToast]);
+
+  const jumpToFirstUnread = useCallback(() => {
+    if (!initialUnreadCount || initialUnreadCount <= 0 || !messages.length) return;
+    const idx = Math.max(0, messages.length - initialUnreadCount);
+    const id = messages[idx]?.id;
+    if (!id) return;
+    document.getElementById(`chat-msg-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    flashMessage(id);
+  }, [initialUnreadCount, messages, flashMessage]);
+
   const profileTargetUser = profileUser || (type === 'user' ? peer : null);
-  const showChatProfileTop = getAppSettings().uiShowChatProfileTop !== false;
+  const showChatProfileTop = getAppSettings().uiShowChatProfileTop === true;
   const peerTyping = Object.keys(typingUsers).length > 0;
 
   return (
-    <div className={`chat-view${showUserProfile && profileTargetUser ? ' chat-view--profile' : ''}${chatEntering ? ' chat-view--entering' : ''}`}>
+    <div className={`chat-view${showUserProfile && profileTargetUser ? ' chat-view--profile' : ''}${chatEntering ? ' chat-view--entering' : ''}${imbaFlash || imbaShakeToken ? ' chat-view--fx-impact' : ''}${imbaOverload ? ' chat-view--overload' : ''}`}>
       <header className={`chat-header${peerTyping ? ' chat-header--peer-typing' : ''}`}>
         {onCycleChatList && (
           <button
@@ -1440,7 +1911,7 @@ export default function ChatView({
         <button type="button" className="btn-icon btn-back" onClick={onBack} aria-label="Back">
           <span className="icon-back" />
         </button>
-        {type === 'user' && (
+        {type === 'user' ? (
           <div className="header-menu-wrap" ref={headerMenuRef}>
             <button
               type="button"
@@ -1455,7 +1926,47 @@ export default function ChatView({
             {showHeaderMenu && (
               <div className="header-menu-dropdown">
                 <button type="button" className="header-menu-item" onClick={() => { openChatSearch(); setShowHeaderMenu(false); }}>
-                  Поиск в чате
+                  {t('chatSearch')}
+                </button>
+                <button
+                  type="button"
+                  className="header-menu-item"
+                  onClick={() => {
+                    setShowJumpDate(true);
+                    setShowHeaderMenu(false);
+                  }}
+                >
+                  {t('jumpToDate')}
+                </button>
+                <button
+                  type="button"
+                  className="header-menu-item"
+                  onClick={() => {
+                    setSelectMode(true);
+                    setSelectedIds(new Set());
+                    setShowHeaderMenu(false);
+                  }}
+                >
+                  {t('selectMessages')}
+                </button>
+                <button
+                  type="button"
+                  className="header-menu-item"
+                  onClick={async () => {
+                    setShowHeaderMenu(false);
+                    setShowStarredPanel(true);
+                    setStarredLoading(true);
+                    try {
+                      const rows = await getStarredMessages(80);
+                      setStarredList(rows);
+                    } catch {
+                      setStarredList([]);
+                    } finally {
+                      setStarredLoading(false);
+                    }
+                  }}
+                >
+                  {t('starredMessages')}
                 </button>
                 {typeof isArchived === 'boolean' && (
                   <button
@@ -1472,6 +1983,59 @@ export default function ChatView({
                 )}
                 <button type="button" className="header-menu-item" onClick={() => { onOpenSettings?.(); setShowHeaderMenu(false); }}>
                   {t('settings')}
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="header-menu-wrap" ref={headerMenuRef}>
+            <button
+              type="button"
+              className="btn-icon btn-menu"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setShowHeaderMenu((v) => !v); }}
+              onClick={(e) => { e.stopPropagation(); }}
+              aria-label="Меню"
+              title="Меню"
+            >
+              <span className="icon-menu" />
+            </button>
+            {showHeaderMenu && (
+              <div className="header-menu-dropdown">
+                <button type="button" className="header-menu-item" onClick={() => { openChatSearch(); setShowHeaderMenu(false); }}>
+                  {t('chatSearch')}
+                </button>
+                <button type="button" className="header-menu-item" onClick={() => { setShowJumpDate(true); setShowHeaderMenu(false); }}>
+                  {t('jumpToDate')}
+                </button>
+                <button
+                  type="button"
+                  className="header-menu-item"
+                  onClick={() => {
+                    setSelectMode(true);
+                    setSelectedIds(new Set());
+                    setShowHeaderMenu(false);
+                  }}
+                >
+                  {t('selectMessages')}
+                </button>
+                <button
+                  type="button"
+                  className="header-menu-item"
+                  onClick={async () => {
+                    setShowHeaderMenu(false);
+                    setShowStarredPanel(true);
+                    setStarredLoading(true);
+                    try {
+                      const rows = await getStarredMessages(80);
+                      setStarredList(rows);
+                    } catch {
+                      setStarredList([]);
+                    } finally {
+                      setStarredLoading(false);
+                    }
+                  }}
+                >
+                  {t('starredMessages')}
                 </button>
               </div>
             )}
@@ -1543,6 +2107,17 @@ export default function ChatView({
           </div>
         </div>
         <div className="chat-header-actions">
+          {type === 'group' && (
+            <button
+              type="button"
+              className={`btn-icon${showMembersPanel ? ' active' : ''}`}
+              onClick={() => setShowMembersPanel((v) => !v)}
+              title={t('membersPanel')}
+              aria-label={t('membersPanel')}
+            >
+              <span aria-hidden>👥</span>
+            </button>
+          )}
           <button
             type="button"
             className="btn-icon"
@@ -1563,15 +2138,76 @@ export default function ChatView({
               <span aria-hidden>{isArchived ? '📥' : '📦'}</span>
             </button>
           )}
-          <button
-            type="button"
-            className={`btn-icon chat-mute-toggle ${chatMuted ? 'active' : ''}`}
-            onClick={() => setChatMuted(toggleChatMuted(recipientType, recipientId))}
-            title={chatMuted ? 'Включить уведомления' : 'Без звука (как в Telegram)'}
-            aria-label={chatMuted ? 'Включить уведомления' : 'Без звука'}
-          >
-            <span aria-hidden>{chatMuted ? '🔕' : '🔔'}</span>
-          </button>
+          <div className="chat-mute-wrap">
+            <button
+              type="button"
+              className={`btn-icon chat-mute-toggle ${chatMuted ? 'active' : ''}`}
+              onClick={() => setMuteMenuOpen((v) => !v)}
+              title={chatMuted ? t('chatUnmute') : t('chatMute')}
+              aria-label={chatMuted ? t('chatUnmute') : t('chatMute')}
+            >
+              <span aria-hidden>{chatMuted ? '🔕' : '🔔'}</span>
+            </button>
+            {muteMenuOpen && (
+              <div className="chat-mute-menu">
+                {chatMuted ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toggleChatMuted(recipientType, recipientId);
+                      setChatMuted(false);
+                      setMuteMenuOpen(false);
+                    }}
+                  >
+                    {t('chatUnmute')}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        persistChatMuted(recipientType, recipientId, { until: Date.now() + 3600e3, hideBadge: true });
+                        setChatMuted(true);
+                        setMuteMenuOpen(false);
+                      }}
+                    >
+                      {t('chatMute1h')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        persistChatMuted(recipientType, recipientId, { until: Date.now() + 8 * 3600e3, hideBadge: true });
+                        setChatMuted(true);
+                        setMuteMenuOpen(false);
+                      }}
+                    >
+                      {t('chatMute8h')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        persistChatMuted(recipientType, recipientId, { until: null, hideBadge: true });
+                        setChatMuted(true);
+                        setMuteMenuOpen(false);
+                      }}
+                    >
+                      {t('chatMuteForever')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        persistChatMuted(recipientType, recipientId, { until: null, hideBadge: false });
+                        setChatMuted(true);
+                        setMuteMenuOpen(false);
+                      }}
+                    >
+                      {t('chatMuteKeepBadge')}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <span
             className={`status-dot ${connected ? 'online' : ''}`}
             title={connected ? 'Подключено' : 'Отключено'}
@@ -1688,6 +2324,16 @@ export default function ChatView({
         className={`message-list-outer${messageListBackgroundStyle ? ' has-group-background' : ''}`}
         style={messageListBackgroundStyle}
       >
+        {getAppSettings().uiImbaFx !== false && (
+          <ImbaChatEffects
+            shake={imbaShakeToken}
+            flash={imbaFlash}
+            rain={imbaRain}
+            starfall={imbaStarfall}
+            overload={imbaOverload}
+            mood={chatMood}
+          />
+        )}
         <div className="message-list" ref={listRef}>
         {(loadingOlder || hasMoreHistory) && (
           <div className="chat-history-top">
@@ -1717,7 +2363,11 @@ export default function ChatView({
         ) : null}
         {messages.map((m, i) => {
           const showDate = i === 0 || formatDateDay(m.createdAt) !== formatDateDay(messages[i - 1].createdAt);
-          const largeEmoji = enableLargeEmoji && !m.isDeleted && !m.attachmentPath && isLargeEmojiText(m.content);
+          const prevMsg = i > 0 ? messages[i - 1] : null;
+          const grouped = isMessageGrouped(m, prevMsg, showDate);
+          const unreadDividerHere = initialUnreadCount > 0
+            && i === Math.max(0, messages.length - initialUnreadCount);
+          const largeEmoji = enableLargeEmoji && !m.isDeleted && !m.attachmentPath && isLargeEmojiText(displayMessageContent(m));
           const channelPost = isChannel && m.postedAsChannel !== false && peer?.postAsChannel !== false;
           const viewsLabel = (() => {
             const n = Number(m.viewCount) || 0;
@@ -1733,6 +2383,9 @@ export default function ChatView({
                 {showDate && (
                   <div className="message-date-separator">{formatDateDay(m.createdAt)}</div>
                 )}
+                {unreadDividerHere && (
+                  <div className="message-unread-separator" role="separator">{t('unreadDivider')}</div>
+                )}
                 <div className="message message-call-ended-wrap">
                   <div className="message-call-ended">
                     <div className="message-call-ended-text">
@@ -1747,13 +2400,46 @@ export default function ChatView({
               </React.Fragment>
             );
           }
+          if (m.messageType === 'action' && !m.isDeleted) {
+            return (
+              <React.Fragment key={m.id}>
+                {showDate && (
+                  <div className="message-date-separator">{formatDateDay(m.createdAt)}</div>
+                )}
+                {unreadDividerHere && (
+                  <div className="message-unread-separator" role="separator">{t('unreadDivider')}</div>
+                )}
+                <div className="message message-action-wrap">
+                  <div className="message-action">
+                    <em>* {m.senderName || '…'} {m.content} *</em>
+                    <time>{new Date(m.createdAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                  </div>
+                </div>
+              </React.Fragment>
+            );
+          }
           return (
           <React.Fragment key={m.id}>
             {showDate && (
               <div className="message-date-separator">{formatDateDay(m.createdAt)}</div>
             )}
-          <div id={`chat-msg-${m.id}`} className={`message ${m.senderId === currentUser.id ? 'own' : ''}${isStickerMessage(m) ? ' message-sticker-msg' : ''}${animatingMsgIds.has(String(m.id)) ? ' message-in' : ''}${highlightMsgId === String(m.id) ? ' message-highlight' : ''}${channelPost ? ' message--channel-post' : ''}`}>
+            {unreadDividerHere && (
+              <div className="message-unread-separator" role="separator">{t('unreadDivider')}</div>
+            )}
+          <div id={`chat-msg-${m.id}`} className={`message ${m.senderId === currentUser.id ? 'own' : ''}${grouped ? ' message--grouped' : ''}${isStickerMessage(m) ? ' message-sticker-msg' : ''}${animatingMsgIds.has(String(m.id)) ? ' message-in' : ''}${highlightMsgId === String(m.id) ? ' message-highlight' : ''}${channelPost ? ' message--channel-post' : ''}${getMessageFx(m) ? ` message-fx--${getMessageFx(m)}` : ''}${isMessageCritical(m) ? ' message-fx--critical' : ''}${vanishingIds.has(String(m.id)) ? ' message-vanishing' : ''}${selectMode && selectedIds.has(m.id) ? ' message--selected' : ''}`}>
+            {selectMode && !m.isDeleted && (
+              <label className="message-select-check" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(m.id)}
+                  onChange={() => toggleSelectId(m.id)}
+                />
+              </label>
+            )}
             {(m.senderId !== currentUser.id || channelPost) && (
+              grouped ? (
+                <span className="message-avatar-spacer" aria-hidden />
+              ) : (
               <img
                 className={`avatar-sm message-avatar${channelPost ? ' message-avatar--channel' : ''}`}
                 src={avatarUrl(m.senderAvatar) || (channelPost && peer?.avatarPath ? avatarUrl(peer.avatarPath) : null) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${channelPost ? recipientId : m.senderId}`}
@@ -1772,8 +2458,12 @@ export default function ChatView({
                 }}
                 style={{ cursor: 'pointer' }}
               />
+              )
             )}
             <div className="message-body" onClick={() => handleMessageTap(m.id)}>
+              {isMessageCritical(m) && animatingMsgIds.has(String(m.id)) && (
+                <span className="message-critical-stamp" aria-hidden>CRIT</span>
+              )}
               {floatingHearts.has(String(m.id)) && (
                 <span className="message-heart-float" aria-hidden>❤️</span>
               )}
@@ -1796,17 +2486,17 @@ export default function ChatView({
                   ))}
                 </div>
               )}
-              {channelPost && (
+              {channelPost && !grouped && (
                 <span className="message-sender message-sender--channel">{m.senderName || peer?.name}</span>
               )}
-              {channelPost && m.authorName && (
+              {channelPost && m.authorName && !grouped && (
                 <span className="message-channel-via">{t('channelAuthorVia').replace('{name}', m.authorName)}</span>
               )}
-              {!channelPost && m.senderId !== currentUser.id && type === 'group' && !isStickerMessage(m) && (
-                <span className="message-sender">{m.senderName}</span>
+              {!channelPost && m.senderId !== currentUser.id && type === 'group' && !isStickerMessage(m) && !grouped && (
+                <span className="message-sender" style={{ color: nameColor(m.senderId) }}>{m.senderName}</span>
               )}
-              {!channelPost && m.senderId !== currentUser.id && type === 'group' && isStickerMessage(m) && (
-                <span className="message-sender message-sender-sticker">{m.senderName}</span>
+              {!channelPost && m.senderId !== currentUser.id && type === 'group' && isStickerMessage(m) && !grouped && (
+                <span className="message-sender message-sender-sticker" style={{ color: nameColor(m.senderId) }}>{m.senderName}</span>
               )}
               {isStickerMessage(m) ? (
                 <div
@@ -1919,6 +2609,13 @@ export default function ChatView({
                     }}>Сохранить</button>
                     <button type="button" className="btn-edit-cancel" onClick={() => { setEditingMessageId(null); setEditingContent(''); }}>Отмена</button>
                   </div>
+                ) : m.messageType === 'poll' && !m.isDeleted ? (
+                  <PollMessage
+                    message={m}
+                    currentUserId={currentUser.id}
+                    onVote={votePoll}
+                    disabled={!canPost}
+                  />
                 ) : m.attachmentPath ? (
                   isVoiceAttachment(m.attachmentPath) ? (
                     <VoiceMessage
@@ -1939,9 +2636,24 @@ export default function ChatView({
                     {m.content && typeof m.content === 'string' && m.content.startsWith('e2e:') ? (
                       m.content
                     ) : (
-                      <MessageFormattedText text={m.content} mentionUsers={mentionUsers} onMentionClick={handleMentionClick} />
+                      <>
+                        <MessageFormattedText text={displayMessageContent(m)} mentionUsers={mentionUsers} onMentionClick={handleMentionClick} />
+                        {!m.isDeleted && !largeEmoji && <LinkPreview text={displayMessageContent(m)} />}
+                      </>
                     )}
                   </p>
+                )}
+                {(msgTranslations[String(m.id)]?.loading || msgTranslations[String(m.id)]?.text) && (
+                  <div className="message-translation">
+                    {msgTranslations[String(m.id)]?.loading ? (
+                      <span className="message-translation-loading">{t('translateLoading')}</span>
+                    ) : (
+                      <>
+                        <span className="message-translation-label">{t('translatedLabel')}</span>
+                        <p className="message-translation-text">{msgTranslations[String(m.id)].text}</p>
+                      </>
+                    )}
+                  </div>
                 )}
                 <time className="message-time">
                   {new Date(m.createdAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -2000,6 +2712,23 @@ export default function ChatView({
                   )}
                   <button
                     type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setSelectMode(true);
+                      setSelectedIds(new Set([m.id]));
+                      setMessageMenuId(null);
+                    }}
+                  >{t('selectMessages')}</button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      saveToSavedMessages(m);
+                      setMessageMenuId(null);
+                    }}
+                  >{t('saveToSaved')}</button>
+                  <button
+                    type="button"
                     onMouseDown={(e) => { e.preventDefault(); setReplyTo({ id: m.id, content: m.content || '', senderName: m.senderName }); setForwardMessage(null); setMessageMenuId(null); }}
                   >Ответить</button>
                   {m.senderId === currentUser.id && !m.attachmentPath && !m.isDeleted && (
@@ -2015,9 +2744,24 @@ export default function ChatView({
                       onMouseDown={(e) => {
                         e.preventDefault();
                         const id = m.id;
-                        if (window.confirm('Удалить сообщение?')) {
+                        if (!window.confirm('Удалить сообщение?')) {
+                          setMessageMenuId(null);
+                          return;
+                        }
+                        const finishDelete = () => {
                           setMessages((prev) => prev.map((msg) => msg.id === id ? { ...msg, isDeleted: true, content: '', reactions: {} } : msg));
                           socket?.emit('delete_message', { messageId: id });
+                          setVanishingIds((prev) => {
+                            const next = new Set(prev);
+                            next.delete(String(id));
+                            return next;
+                          });
+                        };
+                        if (getAppSettings().uiImbaFx !== false) {
+                          setVanishingIds((prev) => new Set(prev).add(String(id)));
+                          window.setTimeout(finishDelete, 420);
+                        } else {
+                          finishDelete();
                         }
                         setMessageMenuId(null);
                       }}
@@ -2057,12 +2801,22 @@ export default function ChatView({
                       }}
                     >Копировать текст</button>
                   )}
+                  {!m.isDeleted && typeof m.content === 'string' && m.content.length > 0 && !m.content.startsWith('e2e:') && m.messageType !== 'poll' && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        translateMessage(m);
+                        setMessageMenuId(null);
+                      }}
+                    >{msgTranslations[String(m.id)]?.text ? t('hideTranslation') : t('translateMessage')}</button>
+                  )}
                   <button
                     type="button"
                     onMouseDown={async (e) => {
                       e.preventDefault();
                       const base = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname || '/'}` : '';
-                      const ok = await copyToClipboard(`${base}#msg-${m.id}`);
+                      const ok = await copyToClipboard(`${base}#chat/${recipientType}/${recipientId}/msg/${m.id}`);
                       showToast(ok ? 'Ссылка скопирована' : 'Не удалось скопировать');
                       setMessageMenuId(null);
                     }}
@@ -2107,6 +2861,35 @@ export default function ChatView({
             )}
           </button>
         )}
+        {initialUnreadCount > 0 && messages.length > 0 && (
+          <button
+            type="button"
+            className="chat-jump-unread-btn"
+            onClick={jumpToFirstUnread}
+          >
+            {t('jumpToUnread')}
+          </button>
+        )}
+        {imbaCombo && (
+          <div className={`imba-combo-toast imba-combo-toast--${imbaCombo.fx || 'party'}`} aria-hidden>
+            {t('imbaCombo').replace('{n}', String(imbaCombo.n))}
+          </div>
+        )}
+        {imbaStreak && (
+          <div className="imba-streak-toast" aria-hidden>
+            {t('imbaStreak').replace('{n}', String(imbaStreak.n))}
+          </div>
+        )}
+        {imbaCritToast && (
+          <div className="imba-crit-toast" aria-hidden>
+            {t('imbaCrit')}
+          </div>
+        )}
+        {imbaMega && (
+          <div className={`imba-mega-toast imba-mega-toast--${imbaMega.tier}`} aria-hidden>
+            {t('imbaMega').replace('{tier}', imbaMega.label).replace('{n}', String(imbaMega.n))}
+          </div>
+        )}
       </div>
 
       {voiceError && (
@@ -2132,6 +2915,56 @@ export default function ChatView({
           )}
         </div>
       )}
+      {selectMode && (
+        <div className="chat-select-bar" role="toolbar" aria-label={t('selectMessages')}>
+          <span className="chat-select-count">{selectedIds.size}</span>
+          <button type="button" onClick={batchCopySelected} disabled={!selectedIds.size}>{t('batchCopy')}</button>
+          <button type="button" onClick={batchForwardSelected} disabled={!selectedIds.size}>{t('batchForward')}</button>
+          <button type="button" onClick={batchStarSelected} disabled={!selectedIds.size}>⭐</button>
+          <button type="button" className="chat-select-cancel" onClick={exitSelectMode}>{t('cancel')}</button>
+        </div>
+      )}
+      {showScheduleComposer && (
+        <div className="chat-schedule-bar">
+          <label className="chat-schedule-label">
+            {t('scheduleAt')}
+            <input
+              type="datetime-local"
+              value={scheduleAt}
+              onChange={(e) => setScheduleAt(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={!scheduleAt || !input.trim()}
+            onClick={send}
+          >
+            {t('scheduleSend')}
+          </button>
+          <button type="button" onClick={() => { setShowScheduleComposer(false); setScheduleAt(''); }}>
+            {t('cancel')}
+          </button>
+        </div>
+      )}
+      {scheduledList.length > 0 && (
+        <div className="chat-scheduled-list">
+          {scheduledList.map((item) => (
+            <div key={item.id} className="chat-scheduled-item">
+              <span>🕒 {new Date(item.sendAt).toLocaleString()} — {item.content.slice(0, 48)}{item.content.length > 48 ? '…' : ''}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  removeScheduledMessage(item.id);
+                  setScheduledList(getScheduledForChat(recipientType, recipientId));
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <footer className={`chat-footer${input.trim() ? ' chat-footer--typing' : ''}${inputFocused ? ' chat-footer--emoji-focus' : ''}`}>
         {!canPost ? (
           <div className="chat-channel-readonly" role="status">
@@ -2150,7 +2983,46 @@ export default function ChatView({
           </label>
         )}
         {canPost && (
+          <FormatToolbar inputRef={chatInputRef} value={input} setValue={setInput} />
+        )}
+        {canPost && (
           <QuickEmojiBar onPick={appendQuickEmoji} />
+        )}
+        {canPost && getMentionQuery(input) != null && (
+          <MentionSuggest
+            query={getMentionQuery(input)}
+            users={mentionUsers}
+            activeIndex={mentionIndex}
+            onActiveIndexChange={setMentionIndex}
+            allowEveryone={type === 'group'}
+            onSelect={(u) => {
+              setInput(insertMention(input, u.login));
+              setMentionIndex(0);
+              requestAnimationFrame(() => chatInputRef.current?.focus());
+            }}
+          />
+        )}
+        {canPost && getMentionQuery(input) == null && getEmojiQuery(input) != null && (
+          <EmojiSuggest
+            query={getEmojiQuery(input)}
+            activeIndex={emojiIndex}
+            onActiveIndexChange={setEmojiIndex}
+            onSelect={(item) => {
+              setInput(insertEmojiShortcode(input, item.emoji));
+              setEmojiIndex(0);
+              requestAnimationFrame(() => chatInputRef.current?.focus());
+            }}
+          />
+        )}
+        {canPost && getAppSettings().uiImbaFx !== false && (
+          <MessageFxBar
+            activeFx={selectedFx}
+            onSelect={setSelectedFx}
+            sticky={fxSticky}
+            onToggleSticky={() => setFxSticky((v) => !v)}
+            mood={chatMood}
+            onMood={setChatMood}
+          />
         )}
         <StickerPicker
           open={showStickerPicker}
@@ -2210,6 +3082,11 @@ export default function ChatView({
           </button>
         )}
         <div className="chat-footer-input-wrap">
+          {input.length >= 400 && (
+            <span className={`chat-char-count${input.length >= 4000 ? ' chat-char-count--warn' : ''}`} aria-live="polite">
+              {input.length}
+            </span>
+          )}
           {showBotCommandMenu && (
             <BotCommandMenu
               commands={botCommands}
@@ -2218,6 +3095,40 @@ export default function ChatView({
               onActiveIndexChange={setBotCmdIndex}
               onSelect={applyBotCommand}
             />
+          )}
+          {showBuiltinSlash && (
+            <div className="bot-command-menu builtin-slash-menu" role="listbox" aria-label={t('slashCommands')}>
+              {builtinSlashCommands.map((c, i) => (
+                <button
+                  key={c.command}
+                  type="button"
+                  role="option"
+                  aria-selected={i === slashIndex}
+                  className={`bot-command-item${i === slashIndex ? ' active' : ''}`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (c.command === 'poll') {
+                      setShowPollComposer(true);
+                      setInput('');
+                      return;
+                    }
+                    if (c.command === 'schedule') {
+                      setShowScheduleComposer(true);
+                      setInput('/schedule ');
+                      return;
+                    }
+                    if (c.command === 'me' || c.command === 'spoiler' || c.command === 'code') {
+                      setInput(`/${c.command} `);
+                      return;
+                    }
+                    setInput(`/${c.command}`);
+                  }}
+                >
+                  <span className="bot-command-name">/{c.command}</span>
+                  <span className="bot-command-desc">{t(c.descriptionKey)}</span>
+                </button>
+              ))}
+            </div>
           )}
           <input
             ref={chatInputRef}
@@ -2228,7 +3139,9 @@ export default function ChatView({
                 ? 'Добавить комментарий (необязательно)'
                 : isBotChat
                   ? 'Сообщение или /команда'
-                  : 'Сообщение...'
+                  : showScheduleComposer
+                    ? t('scheduleInputHint')
+                    : 'Сообщение или /команда'
             }
             value={input}
             onFocus={() => setInputFocused(true)}
@@ -2244,6 +3157,151 @@ export default function ChatView({
               }, 2500);
             }}
             onKeyDown={(e) => {
+              const mentionQ = getMentionQuery(input);
+              const mentionOpen = mentionQ != null && canPost;
+              if (mentionOpen) {
+                const q = String(mentionQ).toLowerCase();
+                const mentionItems = [];
+                if (type === 'group' && (!q || 'everyone'.startsWith(q))) {
+                  mentionItems.push({ login: 'everyone' });
+                }
+                (mentionUsers || []).forEach((u) => {
+                  if (!u?.login) return;
+                  const login = String(u.login).toLowerCase();
+                  const name = String(u.displayName || '').toLowerCase();
+                  if (!q || login.includes(q) || name.includes(q)) mentionItems.push(u);
+                });
+                const mentionCount = Math.min(mentionItems.length, 8);
+                if (mentionCount > 0) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setMentionIndex((i) => Math.min(i + 1, mentionCount - 1));
+                    return;
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setMentionIndex((i) => Math.max(i - 1, 0));
+                    return;
+                  }
+                  if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+                    e.preventDefault();
+                    const pick = mentionItems[mentionIndex] || mentionItems[0];
+                    if (pick?.login) {
+                      setInput(insertMention(input, pick.login));
+                      setMentionIndex(0);
+                    }
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setInput(input.replace(/@[a-zA-Z0-9_]*$/, ''));
+                    setMentionIndex(0);
+                    return;
+                  }
+                }
+              }
+              const emojiQ = !mentionOpen ? getEmojiQuery(input) : null;
+              if (emojiQ != null && canPost) {
+                const emojiItems = filterEmojiShortcodes(emojiQ, 8);
+                if (emojiItems.length > 0) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setEmojiIndex((i) => Math.min(i + 1, emojiItems.length - 1));
+                    return;
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setEmojiIndex((i) => Math.max(i - 1, 0));
+                    return;
+                  }
+                  if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+                    e.preventDefault();
+                    const pick = emojiItems[emojiIndex] || emojiItems[0];
+                    if (pick?.emoji) {
+                      setInput(insertEmojiShortcode(input, pick.emoji));
+                      setEmojiIndex(0);
+                    }
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setInput(input.replace(/:[a-zA-Z0-9_+-]*$/, ''));
+                    setEmojiIndex(0);
+                    return;
+                  }
+                }
+              }
+              if (e.key === 'Escape' && replyTo) {
+                e.preventDefault();
+                setReplyTo(null);
+                return;
+              }
+              if (e.key === 'ArrowUp' && !input.trim() && !e.shiftKey && !replyTo) {
+                const last = [...messages].reverse().find((m) => !m.isDeleted && m.messageType !== 'call_ended');
+                if (last) {
+                  e.preventDefault();
+                  setReplyTo({ id: last.id, content: last.content || '', senderName: last.senderName });
+                  setForwardMessage(null);
+                  return;
+                }
+              }
+              if ((e.ctrlKey || e.metaKey) && !e.altKey && chatInputRef.current) {
+                const map = { b: ['**', '**'], i: ['*', '*'], u: ['__', '__'], e: ['||', '||'] };
+                const pair = map[e.key?.toLowerCase?.()];
+                if (pair) {
+                  e.preventDefault();
+                  const result = wrapInputSelection(chatInputRef.current, pair[0], pair[1]);
+                  if (result) {
+                    setInput(result.next);
+                    requestAnimationFrame(() => {
+                      chatInputRef.current?.setSelectionRange(result.cursorStart, result.cursorEnd);
+                    });
+                  }
+                  return;
+                }
+              }
+              if (getAppSettings().uiImbaFx !== false && e.altKey && !e.ctrlKey && !e.metaKey) {
+                const num = e.code?.startsWith('Digit') ? Number(e.code.slice(5)) : NaN;
+                if (num >= 1 && num <= 9) {
+                  e.preventDefault();
+                  const fx = FX_HOTKEYS[num - 1];
+                  if (fx) setSelectedFx((cur) => (cur === fx.id ? null : fx.id));
+                  return;
+                }
+              }
+              if (showBuiltinSlash) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setSlashIndex((i) => Math.min(i + 1, builtinSlashCommands.length - 1));
+                  return;
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setSlashIndex((i) => Math.max(i - 1, 0));
+                  return;
+                }
+                if (e.key === 'Tab') {
+                  e.preventDefault();
+                  const c = builtinSlashCommands[slashIndex] || builtinSlashCommands[0];
+                  if (!c) return;
+                  if (c.command === 'poll') {
+                    setShowPollComposer(true);
+                    setInput('');
+                    return;
+                  }
+                  if (c.command === 'schedule') {
+                    setShowScheduleComposer(true);
+                    setInput('');
+                    return;
+                  }
+                  if (c.command === 'me' || c.command === 'spoiler' || c.command === 'code') {
+                    setInput(`/${c.command} `);
+                    return;
+                  }
+                  setInput(`/${c.command}`);
+                  return;
+                }
+              }
               if (showBotCommandMenu) {
                 if (e.key === 'ArrowDown') {
                   e.preventDefault();
@@ -2314,6 +3372,22 @@ export default function ChatView({
           >
             😊
           </button>
+          <button
+            type="button"
+            className={`chat-footer-extra chat-footer-extra-text${showScheduleComposer ? ' active' : ''}`}
+            title={t('scheduleSend')}
+            onClick={() => setShowScheduleComposer((v) => !v)}
+          >
+            🕒
+          </button>
+          <button
+            type="button"
+            className="chat-footer-extra chat-footer-extra-text"
+            title={t('createPoll')}
+            onClick={() => setShowPollComposer(true)}
+          >
+            📊
+          </button>
         </div>
         {recording ? (
           <div className="chat-footer-voice chat-footer-voice-live chat-footer-voice--recording">
@@ -2346,7 +3420,42 @@ export default function ChatView({
             >
               <span className="icon-mic" />
             </button>
-            <button type="button" className={`btn-send${input.trim() || forwardMessage ? ' btn-send--ready' : ''}${sendBurst ? ' btn-send--burst' : ''}`} onClick={send} disabled={!connected || sending || (!input.trim() && !forwardMessage)} aria-label="Отправить">
+            <button
+              type="button"
+              className={`btn-send${input.trim() || forwardMessage ? ' btn-send--ready' : ''}${sendBurst ? ' btn-send--burst' : ''}${sendCharging ? ' btn-send--charging' : ''}`}
+              title={getAppSettings().uiImbaFx !== false ? t('imbaChargeHint') : undefined}
+              onClick={send}
+              onPointerDown={(e) => {
+                if (getAppSettings().uiImbaFx === false) return;
+                if (e.button !== 0) return;
+                chargeArmedRef.current = false;
+                setSendCharging(true);
+                if (chargeTimerRef.current) clearTimeout(chargeTimerRef.current);
+                chargeTimerRef.current = window.setTimeout(() => {
+                  chargeArmedRef.current = true;
+                }, 850);
+              }}
+              onPointerUp={() => {
+                if (chargeTimerRef.current) {
+                  clearTimeout(chargeTimerRef.current);
+                  chargeTimerRef.current = null;
+                }
+                setSendCharging(false);
+              }}
+              onPointerLeave={() => {
+                if (chargeTimerRef.current) {
+                  clearTimeout(chargeTimerRef.current);
+                  chargeTimerRef.current = null;
+                }
+                setSendCharging(false);
+                chargeArmedRef.current = false;
+              }}
+              disabled={!connected || sending || (!input.trim() && !forwardMessage)}
+              aria-label="Отправить"
+            >
+              {sendCharging && (
+                <span className="btn-send-charge-bar" aria-hidden><span /></span>
+              )}
               <span className="icon-send" />
             </button>
           </>
@@ -2367,6 +3476,125 @@ export default function ChatView({
           }}
         />
       )}
+
+      {showJumpDate && (
+        <div className="modal-overlay" role="presentation" onClick={() => setShowJumpDate(false)}>
+          <div className="modal jump-date-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <h3>{t('jumpToDate')}</h3>
+            <input
+              type="date"
+              className="jump-date-input"
+              value={jumpDateValue}
+              onChange={(e) => setJumpDateValue(e.target.value)}
+            />
+            <div className="modal-actions">
+              <button type="button" onClick={() => setShowJumpDate(false)}>{t('cancel')}</button>
+              <button type="button" className="btn-primary" onClick={jumpToDate} disabled={!jumpDateValue}>
+                {t('jumpToDateGo')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPollComposer && (
+        <div className="modal-overlay" role="presentation" onClick={() => setShowPollComposer(false)}>
+          <div className="modal poll-composer-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <h3>{t('createPoll')}</h3>
+            <input
+              type="text"
+              className="poll-composer-question"
+              placeholder={t('pollQuestion')}
+              value={pollQuestion}
+              onChange={(e) => setPollQuestion(e.target.value)}
+              maxLength={200}
+            />
+            <textarea
+              className="poll-composer-options"
+              placeholder={t('pollOptionsHint')}
+              value={pollOptionsText}
+              onChange={(e) => setPollOptionsText(e.target.value)}
+              rows={5}
+            />
+            <label className="poll-composer-multi">
+              <input type="checkbox" checked={pollMulti} onChange={(e) => setPollMulti(e.target.checked)} />
+              <span>{t('pollMulti')}</span>
+            </label>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setShowPollComposer(false)}>{t('cancel')}</button>
+              <button type="button" className="btn-primary" onClick={sendPoll}>{t('createPoll')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showStarredPanel && (
+        <div className="modal-overlay" role="presentation" onClick={() => setShowStarredPanel(false)}>
+          <div className="modal starred-panel-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <h3>{t('starredMessages')}</h3>
+            {starredLoading ? (
+              <p className="starred-empty">{t('loading')}</p>
+            ) : starredList.length === 0 ? (
+              <p className="starred-empty">{t('starredEmpty')}</p>
+            ) : (
+              <ul className="starred-list">
+                {starredList.map((m) => {
+                  const inThisChat = m.recipientType === recipientType && (
+                    m.recipientType === 'group'
+                      ? String(m.recipientId) === String(recipientId)
+                      : String(m.senderId) === String(recipientId) || String(m.recipientId) === String(recipientId)
+                  );
+                  return (
+                    <li key={m.id}>
+                      <button
+                        type="button"
+                        className="starred-item"
+                        onClick={() => {
+                          setShowStarredPanel(false);
+                          if (inThisChat) {
+                            const el = document.getElementById(`chat-msg-${m.id}`);
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              flashMessage(m.id);
+                            } else {
+                              window.location.hash = `#chat/${m.recipientType === 'group' ? 'group' : 'user'}/${m.recipientType === 'group' ? m.recipientId : (String(m.senderId) === String(currentUser.id) ? m.recipientId : m.senderId)}/msg/${m.id}`;
+                            }
+                          } else {
+                            const chatId = m.recipientType === 'group'
+                              ? m.recipientId
+                              : (String(m.senderId) === String(currentUser.id) ? m.recipientId : m.senderId);
+                            if (m.recipientType === 'group') onOpenChannel?.(chatId);
+                            else onOpenUserChat?.(chatId);
+                            sessionStorage.setItem('nova_scroll_msg', m.id);
+                          }
+                        }}
+                      >
+                        <span className="starred-item-who">{m.senderName || '—'}</span>
+                        <span className="starred-item-text">{m.isDeleted ? '…' : (m.content || (m.attachmentPath ? '(медиа)' : '…'))}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <div className="modal-actions">
+              <button type="button" className="btn-primary" onClick={() => setShowStarredPanel(false)}>{t('close')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <MembersPanel
+        open={type === 'group' && showMembersPanel}
+        onClose={() => setShowMembersPanel(false)}
+        members={groupMembers}
+        presenceByUserId={memberPresence}
+        currentUserId={currentUser?.id}
+        onOpenUser={(u) => {
+          setProfileUser(u);
+          setShowUserProfile(true);
+        }}
+      />
 
       {photoViewer && (
         <PhotoViewer

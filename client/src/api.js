@@ -696,11 +696,13 @@ export async function changeMemberRole(groupId, userId, role) {
 export async function getMessages(type, id, opts = {}) {
   const limit = opts && opts.limit != null ? Number(opts.limit) : undefined;
   const before = opts && opts.before != null ? Number(opts.before) : undefined;
+  const around = opts && opts.around != null ? Number(opts.around) : undefined;
   const qs = new URLSearchParams();
   qs.set('type', type);
   qs.set('id', id);
   if (Number.isFinite(limit)) qs.set('limit', String(limit));
   if (Number.isFinite(before)) qs.set('before', String(before));
+  if (Number.isFinite(around)) qs.set('around', String(around));
   const res = await fetchWithAuth(getApiBaseUrl() + '/api/messages?' + qs.toString(), { headers: { 'Content-Type': 'application/json' } });
   if (!res.ok) throw new Error('Failed to load messages');
   const data = await res.json();
@@ -712,6 +714,7 @@ export async function getMessages(type, id, opts = {}) {
     pinned: Array.isArray(data.pinned) ? data.pinned : [],
     peerLastReadAt: data.peerLastReadAt != null ? Number(data.peerLastReadAt) : null,
     hasMore: !!data.hasMore,
+    aroundId: data.aroundId || null,
   };
 }
 
@@ -881,16 +884,28 @@ export async function getArchivedChats(limit = 200) {
   return Array.isArray(data?.results) ? data.results : [];
 }
 
-export async function updateCustomStatus({ emoji = '', text = '', mode = 'online' }) {
+export async function updateCustomStatus({ emoji, text, mode } = {}) {
+  const body = {};
+  if (emoji !== undefined) body.emoji = emoji;
+  if (text !== undefined) body.text = text;
+  if (mode !== undefined) body.mode = mode;
   const res = await fetch(getApiBaseUrl() + '/api/users/me/status', {
     method: 'PUT',
     headers: getHeaders(),
-    body: JSON.stringify({ emoji, text, mode }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: 'Failed to update status' }));
     throw new Error(error.error || 'Failed to update status');
   }
+  return res.json();
+}
+
+export async function fetchLinkPreview(url) {
+  const q = encodeURIComponent(String(url || '').trim());
+  if (!q) return null;
+  const res = await fetchWithAuth(`${getApiBaseUrl()}/api/link-preview?url=${q}`);
+  if (!res.ok) return null;
   return res.json();
 }
 
@@ -1020,6 +1035,20 @@ export async function translateVoiceMessage(messageId, targetLang) {
   return data.voiceMeta;
 }
 
+/** Перевод произвольного текста (MyMemory через сервер). */
+export async function translateText(text, to = 'en', from = 'auto') {
+  const res = await fetch(getApiBaseUrl() + '/api/translate', {
+    method: 'POST',
+    headers: getHeaders(true),
+    body: JSON.stringify({ text, to, from }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || data.message || 'Translation failed');
+  }
+  return data;
+}
+
 /** Загрузить вложение (фото, видео, файл) для чата. Возвращает path. */
 export async function uploadAttachment(file) {
   const url = getApiBaseUrl() + '/api/attachments/upload';
@@ -1095,7 +1124,9 @@ export function avatarUrl(path) {
   if (p.startsWith('http://') || p.startsWith('https://')) return p;
   const base = getApiBaseUrl() || (typeof window !== 'undefined' ? window.location.origin : '');
   const segment = p.startsWith('/') ? p : (p.startsWith('uploads/') ? '/' + p : '/uploads/' + p);
-  return base + segment;
+  // cache-bust по имени файла, чтобы после смены авы не показывалась старая из кэша
+  const bust = encodeURIComponent(segment.split('/').pop() || '');
+  return `${base}${segment}${bust ? `?v=${bust}` : ''}`;
 }
 
 // Установить публичный ключ для сквозного шифрования

@@ -1,0 +1,236 @@
+/* Nova Imba FX batch 3 — ульта, криты, заряд, vanish */
+
+@keyframes imba-laser-in {
+  0% { opacity: 0; transform: scaleX(0.1) scaleY(1.4); filter: brightness(3); }
+  50% { opacity: 1; transform: scaleX(1.05) scaleY(0.95); }
+  100% { transform: none; filter: none; }
+}
+
+@keyframes imba-pixel-in {
+  0% { opacity: 0; transform: scale(0.5); image-rendering: pixelated; filter: contrast(2); }
+  40% { transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); filter: none; }
+}
+
+@keyframes imba-smoke-in {
+  0% { opacity: 0; transform: scale(1.3); filter: blur(10px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+@keyframes imba-thunder-in {
+  0%, 20%, 40% { opacity: 0; filter: brightness(4); }
+  10%, 30%, 50% { opacity: 1; filter: brightness(1.5); }
+  100% { opacity: 1; filter: none; }
+}
+
+@keyframes imba-candy-in {
+  0% { opacity: 0; transform: rotate(-20deg) scale(0.4); }
+  60% { transform: rotate(8deg) scale(1.1); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes imba-cyber-in {
+  0% { opacity: 0; transform: perspective(400px) rotateY(-25deg); filter: hue-rotate(120deg); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes imba-nova-in {
+  0% { opacity: 0; transform: scale(0.2) rotate(-30deg); filter: brightness(3) saturate(2); }
+  45% { opacity: 1; transform: scale(1.2) rotate(8deg); filter: brightness(1.6); }
+  70% { transform: scale(0.94) rotate(-3deg); }
+  100% { transform: scale(1) rotate(0); filter: none; }
+}
+
+@keyframes imba-nova-ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 220, 80, 0.7), 0 0 0 0 rgba(180, 60, 255, 0.5); }
+  100% { box-shadow: 0 0 0 28px transparent, 0 0 0 48px transparent; }
+}
+
+@keyframes imba-critical-stamp {
+  0% { opacity: 0; transform: translate(-50%, -40%) scale(2.4) rotate(-12deg); }
+  25% { opacity: 1; transform: translate(-50%, -55%) scale(1.1) rotate(4deg); }
+  100% { opacity: 0; transform: translate(-50%, -90%) scale(0.8) rotate(-6deg); }
+}
+
+@keyframes imba-charge-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); }
+  100% { box-shadow: 0 0 0 18px transparent; }
+}
+
+@keyframes imba-charge-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes imba-vanish {
+  0% { opacity: 1; transform: scale(1); filter: none; }
+  40% { opacity: 0.8; transform: scale(1.05) rotate(2deg); filter: brightness(1.5); }
+  100% { opacity: 0; transform: scale(0.4) translateY(-20px) rotate(-8deg); filter: blur(6px); }
+}
+
+@keyframes imba-avatar-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes imba-ribbon {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--laser .message-bubble {
+  animation: imba-laser-in 0.45s ease both;
+  border: 1px solid color-mix(in srgb, #ff2a2a 60%, transparent);
+  box-shadow: 0 0 18px rgba(255, 40, 40, 0.45);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--pixel .message-bubble {
+  animation: imba-pixel-in 0.45s steps(4, end) both;
+  border: 2px solid color-mix(in srgb, #4d7cff 55%, transparent);
+  border-radius: 4px !important;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--smoke .message-bubble {
+  animation: imba-smoke-in 0.7s ease both;
+  border: 1px solid color-mix(in srgb, #aaa 35%, transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--thunder .message-bubble {
+  animation: imba-thunder-in 0.55s ease both;
+  border: 1px solid color-mix(in srgb, #ffe566 60%, transparent);
+  box-shadow: 0 0 22px rgba(255, 230, 80, 0.5);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--candy .message-bubble {
+  animation: imba-candy-in 0.55s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+  border: 1px solid transparent;
+  background-image:
+    linear-gradient(var(--bg-elevated, #1e1e24), var(--bg-elevated, #1e1e24)),
+    linear-gradient(90deg, #ff8ec8, #ffd18e, #8effc1, #8ecbff, #ff8ec8);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  background-size: auto, 200% 100%;
+  animation: imba-candy-in 0.55s cubic-bezier(0.34, 1.45, 0.64, 1) both, imba-ribbon 2s linear 0.5s 2;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--cyber .message-bubble {
+  animation: imba-cyber-in 0.55s ease both;
+  border: 1px solid color-mix(in srgb, #00f0ff 55%, transparent);
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.35);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--nova .message-bubble {
+  animation: imba-nova-in 0.7s cubic-bezier(0.22, 1.35, 0.36, 1) both, imba-nova-ring 0.8s ease 0.15s 2;
+  border: 1px solid color-mix(in srgb, #ffd24d 65%, transparent);
+  background-image: radial-gradient(circle at 30% 20%, color-mix(in srgb, #ffd24d 22%, transparent), transparent 55%),
+    radial-gradient(circle at 80% 80%, color-mix(in srgb, #c44dff 18%, transparent), transparent 50%);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--critical .message-bubble {
+  outline: 2px solid #ffd24d;
+  outline-offset: 2px;
+}
+
+.message-critical-stamp {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  z-index: 5;
+  pointer-events: none;
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  color: #ffd24d;
+  text-shadow: 0 0 12px rgba(255, 200, 40, 0.8), 0 2px 6px rgba(0,0,0,0.6);
+  animation: imba-critical-stamp 1s ease forwards;
+}
+
+.message-body {
+  position: relative;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-vanishing {
+  animation: imba-vanish 0.45s ease forwards;
+  pointer-events: none;
+}
+
+.btn-send--charging {
+  position: relative;
+  overflow: hidden;
+  animation: imba-charge-pulse 0.7s ease-out infinite;
+}
+
+.btn-send-charge-bar {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  height: 3px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.btn-send-charge-bar > span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--accent), #ffd24d);
+  animation: imba-charge-fill 0.85s linear forwards;
+}
+
+.imba-crit-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 190px;
+  z-index: 42;
+  pointer-events: none;
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: 0.1em;
+  color: #ffd24d;
+  text-shadow: 0 0 18px rgba(255, 200, 40, 0.85), 0 2px 10px rgba(0,0,0,0.7);
+  animation: imba-critical-stamp 1.15s ease forwards;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .avatar-with-presence:hover img,
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .chat-header .avatar-sm:hover,
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .chat-list li:hover .avatar-sm {
+  animation: imba-avatar-spin 0.7s ease;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .chat-footer--emoji-focus {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message-fx-btn.active {
+  animation: imba-charge-pulse 1s ease-out infinite;
+}
+
+.message-fx-hotkey-hint {
+  font-size: 10px;
+  opacity: 0.55;
+  margin-left: 2px;
+}
+
+.imba-screen-flash--nova {
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 210, 80, 0.4), transparent 55%),
+    radial-gradient(circle at 20% 80%, rgba(180, 60, 255, 0.28), transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(80, 200, 255, 0.25), transparent 45%);
+}
+
+.imba-screen-flash--thunder,
+.imba-screen-flash--laser {
+  background: radial-gradient(circle, rgba(255, 240, 120, 0.35), transparent 55%);
+}
+
+.imba-screen-flash--candy {
+  background: linear-gradient(120deg, rgba(255,140,200,0.25), rgba(140,255,200,0.2), rgba(140,200,255,0.25));
+}
+
+.imba-screen-flash--cyber {
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.3), transparent 60%);
+}

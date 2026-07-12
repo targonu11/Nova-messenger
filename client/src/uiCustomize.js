@@ -111,6 +111,12 @@ export function applyUiCustomization() {
     root.removeAttribute('data-hide-message-avatars');
   }
 
+  if (s.uiImbaFx !== false) {
+    root.setAttribute('data-imba-fx', 'true');
+  } else {
+    root.removeAttribute('data-imba-fx');
+  }
+
   if (s.uiLowSaturation) {
     root.style.filter = 'saturate(0.78)';
   } else {

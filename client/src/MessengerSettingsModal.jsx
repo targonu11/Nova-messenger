@@ -163,10 +163,11 @@ export default function MessengerSettingsModal({ onClose, onThemeChange, onLangC
   const [uiChatDensity, setUiChatDensityState] = useState(() => getAppSettings().uiChatDensity || 'comfortable');
   const [uiRadius, setUiRadiusState] = useState(() => getAppSettings().uiRadius || 'normal');
   const [syncThemeWithSystem, setSyncThemeWithSystemState] = useState(() => !!getAppSettings().syncThemeWithSystem);
-  const [uiShowChatProfileTop, setUiShowChatProfileTopState] = useState(() => getAppSettings().uiShowChatProfileTop !== false);
+  const [uiShowChatProfileTop, setUiShowChatProfileTopState] = useState(() => getAppSettings().uiShowChatProfileTop === true);
   const [uiSidebarWidth, setUiSidebarWidthState] = useState(() => getAppSettings().uiSidebarWidth || 'normal');
   const [uiMessageGap, setUiMessageGapState] = useState(() => getAppSettings().uiMessageGap || 'normal');
   const [uiShowMessageAvatars, setUiShowMessageAvatarsState] = useState(() => getAppSettings().uiShowMessageAvatars !== false);
+  const [uiImbaFx, setUiImbaFxState] = useState(() => getAppSettings().uiImbaFx !== false);
   const [uiLowSaturation, setUiLowSaturationState] = useState(() => !!getAppSettings().uiLowSaturation);
   const [sessions, setSessions] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -1020,6 +1021,21 @@ export default function MessengerSettingsModal({ onClose, onThemeChange, onLangC
                   />
                 </span>
               </label>
+              <label className="messenger-settings-row">
+                <span className="messenger-settings-row-left"><span className="messenger-settings-row-icon">🔥</span><span className="messenger-settings-row-text">{t('guiImbaFx')}</span></span>
+                <span className="messenger-settings-row-right">
+                  <input
+                    type="checkbox"
+                    checked={uiImbaFx}
+                    onChange={(e) => {
+                      setAppSetting('uiImbaFx', e.target.checked);
+                      setUiImbaFxState(e.target.checked);
+                      applyUiCustomization();
+                    }}
+                  />
+                </span>
+              </label>
+              <p className="messenger-settings-hint messenger-settings-hint-indent">{t('guiImbaFxHint')}</p>
 
               <h3 className="messenger-settings-section-title">{t('guiSectionSidebar')}</h3>
               <div className="messenger-settings-row">

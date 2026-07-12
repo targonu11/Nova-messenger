@@ -23,13 +23,23 @@ import { applyUiCustomization } from './uiCustomize';
 import { getAppSettings } from './appSettings';
 import NotificationPanel from './NotificationPanel';
 import { t, getStoredLang } from './i18n';
-import { isChatMuted } from './chatMute';
+import { isChatMuted, getChatMuteState, unmuteChat, setChatMuted } from './chatMute';
 import { isChatPinned, toggleChatPinned, getPinnedChatKeys } from './chatPins';
+import {
+  getCustomFolders,
+  createCustomFolder,
+  deleteCustomFolder,
+  addChatToFolder,
+  removeChatFromFolder,
+  isChatInFolder,
+} from './chatFolders';
+import { useIdlePresence } from './useIdlePresence';
 import { useAppUpdate } from './useAppUpdate';
 import { playNotificationSound } from './useNotificationSound';
 import { useSystemNotifications, showSystemNotification } from './useSystemNotifications';
 import { formatMessagePreview, formatChatListTime } from './chatListPreview';
-import { getUnreadCounts, incrementUnread, clearUnread } from './chatUnread';
+import { getUnreadCounts, incrementUnread, clearUnread, setUnread, getUnreadCount } from './chatUnread';
+import { getDraftMap } from './chatDrafts';
 import { formatCustomStatusLine, presenceModeFromEntity } from './customStatus';
 import { mergePlaybackActivities } from './activityUtils';
 import { UserActivityPreview } from './UserActivityOverlay';
@@ -38,6 +48,8 @@ import SidebarUserPanel from './SidebarUserPanel';
 import NovaAmbient from './NovaAmbient';
 import ChatListSkeleton from './ChatListSkeleton';
 import StatusPicker from './StatusPicker';
+import QuickSwitcher from './QuickSwitcher';
+import { takeDueScheduled } from './scheduledMessages';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import { getTimeGreeting, getWelcomeQuote, flashThemeChange } from './novaMotion';
 import { getNotificationsPlaySound } from './appSettings';
@@ -105,6 +117,7 @@ function setStoredLastChat(selected) {
 
 export default function Messenger() {
   const { user, logout, updateUser, refreshUser } = useAuth();
+  useIdlePresence(!!user?.id, user?.customStatusMode || 'online', updateUser);
   const { socket, authFailed, connected } = useSocket();
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -135,6 +148,13 @@ export default function Messenger() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatSearch, setChatSearch] = useState('');
   const [chatFolder, setChatFolder] = useState('all');
+  const [customFolders, setCustomFolders] = useState(() => getCustomFolders());
+  const [folderMenuChat, setFolderMenuChat] = useState(null);
+  const [chatCtxMenu, setChatCtxMenu] = useState(null);
+  const [muteVersion, setMuteVersion] = useState(0);
+  const [draftMap, setDraftMap] = useState(() => getDraftMap());
+  const [draftTick, setDraftTick] = useState(0);
+
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [pinnedVersion, setPinnedVersion] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
@@ -161,6 +181,7 @@ export default function Messenger() {
   const myActivities = useActivitySync(Boolean(user?.id));
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+  const [showQuickSwitcher, setShowQuickSwitcher] = useState(false);
   const [adminTab, setAdminTab] = useState('groups'); // 'groups' | 'users'
   const [adminGroupQuery, setAdminGroupQuery] = useState('');
   const [adminUserQuery, setAdminUserQuery] = useState('');
@@ -170,6 +191,7 @@ export default function Messenger() {
   const [pendingForwardMessage, setPendingForwardMessage] = useState(null);
   const [presenceByUserId, setPresenceByUserId] = useState({});
   const [unreadCounts, setUnreadCounts] = useState(() => getUnreadCounts());
+  const [openedUnreadCount, setOpenedUnreadCount] = useState(0);
   const prevUnreadRef = useRef({});
   const [unreadBumpKeys, setUnreadBumpKeys] = useState(() => new Set());
   const [pinFlashKeys, setPinFlashKeys] = useState(() => new Set());
@@ -234,6 +256,35 @@ export default function Messenger() {
 
   useEffect(() => {
     const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowQuickSwitcher(true);
+        return;
+      }
+      if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        const tag = e.target?.tagName?.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
+        const list = folderFilteredChatsRef.current;
+        if (!list?.length) return;
+        e.preventDefault();
+        const idx = list.findIndex(
+          (c) => selectedRef.current?.type === c.type && String(selectedRef.current?.id) === String(c.id)
+        );
+        const nextIdx = e.key === 'ArrowUp'
+          ? (idx <= 0 ? list.length - 1 : idx - 1)
+          : (idx < 0 || idx >= list.length - 1 ? 0 : idx + 1);
+        const chat = list[nextIdx];
+        if (!chat) return;
+        if (chat.type === 'user') setSelectedServerId(null);
+        if (chat.type === 'group') {
+          const gr = groupsRef.current.find((x) => String(x.id) === String(chat.id));
+          if (gr?.serverId) setSelectedServerId(gr.serverId);
+          else setSelectedServerId(null);
+        }
+        setSelected({ type: chat.type, id: chat.id });
+        setSidebarOpen(false);
+        return;
+      }
       if (e.key !== '?' || e.ctrlKey || e.metaKey || e.altKey) return;
       const tag = e.target?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
@@ -243,6 +294,38 @@ export default function Messenger() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  useEffect(() => {
+    if (!socket || !connected) return undefined;
+    const flush = () => {
+      const due = takeDueScheduled();
+      due.forEach((item) => {
+        try {
+          const payload = {
+            recipientType: item.recipientType,
+            recipientId: item.recipientId,
+            content: item.content,
+          };
+          if (item.replyToId) payload.replyToId = item.replyToId;
+          if (item.messageType) payload.messageType = item.messageType;
+          if (item.messageMeta) payload.messageMeta = item.messageMeta;
+          socket.emit('send_message', payload);
+        } catch {}
+      });
+    };
+    flush();
+    const timer = window.setInterval(flush, 10000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') flush();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('nova-scheduled', flush);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('nova-scheduled', flush);
+    };
+  }, [socket, connected]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -332,7 +415,12 @@ export default function Messenger() {
   }, [themeVersion]);
 
   useEffect(() => {
-    if (!selected) return;
+    if (!selected) {
+      setOpenedUnreadCount(0);
+      return;
+    }
+    const n = getUnreadCount(selected.type, selected.id);
+    setOpenedUnreadCount(n);
     clearUnread(selected.type, selected.id);
     setUnreadCounts(getUnreadCounts());
   }, [selected?.type, selected?.id]);
@@ -529,8 +617,26 @@ export default function Messenger() {
         }).catch(console.error);
       }
     };
+    const onAvatar = (payload) => {
+      if (!payload?.userId || !payload?.avatarPath) return;
+      const uid = String(payload.userId);
+      setUsers((prev) => prev.map((u) => (String(u.id) === uid ? { ...u, avatarPath: payload.avatarPath } : u)));
+      setSelectedUser((prev) => (prev && String(prev.id) === uid ? { ...prev, avatarPath: payload.avatarPath } : prev));
+      setRecentChats((prev) =>
+        Array.isArray(prev)
+          ? prev.map((c) => (c.type === 'user' && String(c.id) === uid ? { ...c, avatarPath: payload.avatarPath } : c))
+          : prev
+      );
+      if (user && String(user.id) === uid) {
+        refreshUser();
+      }
+    };
     socket.on('sync', onSync);
-    return () => socket.off('sync', onSync);
+    socket.on('user:avatar', onAvatar);
+    return () => {
+      socket.off('sync', onSync);
+      socket.off('user:avatar', onAvatar);
+    };
   }, [socket]);
 
   const loadRecentChats = (allUsers, allGroups) => {
@@ -614,8 +720,10 @@ export default function Messenger() {
       const isBackground = typeof document !== 'undefined' && (document.hidden || !document.hasFocus?.());
       const sel = selectedRef.current;
       const isCurrentChat = sel?.type === chatType && String(sel?.id) === String(chatId);
-      const muted = isChatMuted(chatType, chatId);
-      if (isIncoming && isBackground && !isCurrentChat && !muted) {
+      const mutedState = getChatMuteState(chatType, chatId);
+      const muted = mutedState.muted;
+      const silentMsg = !!msg.isSilent;
+      if (isIncoming && isBackground && !isCurrentChat && !muted && !silentMsg) {
         const chatName = chatType === 'group'
           ? (g.find((gr) => gr.id === chatId)?.name || 'Group')
           : (u.find((us) => us.id === chatId)?.displayName || 'User');
@@ -652,7 +760,13 @@ export default function Messenger() {
           },
         });
       }
-      if (isIncoming && !isCurrentChat && getAppSettings().foldersShowUnreadBadge !== false) {
+      if (
+        isIncoming
+        && !isCurrentChat
+        && getAppSettings().foldersShowUnreadBadge !== false
+        && !(muted && mutedState.hideBadge)
+        && !silentMsg
+      ) {
         incrementUnread(chatType, chatId);
         setUnreadCounts(getUnreadCounts());
       }
@@ -738,6 +852,11 @@ export default function Messenger() {
     else if (chatFolder === 'groups') list = list.filter((c) => c.type === 'group');
     else if (chatFolder === 'unread') {
       list = list.filter((c) => (unreadCounts[`${c.type}:${c.id}`] || 0) > 0);
+    } else if (String(chatFolder).startsWith('custom:')) {
+      const fid = String(chatFolder).slice('custom:'.length);
+      const folder = customFolders.find((f) => f.id === fid);
+      const keys = new Set(folder?.chatKeys || []);
+      list = list.filter((c) => keys.has(`${c.type}:${c.id}`));
     }
     const pinnedKeys = new Set(getPinnedChatKeys());
     return [...list].sort((a, b) => {
@@ -746,7 +865,40 @@ export default function Messenger() {
       if (ap !== bp) return bp - ap;
       return (b.lastMessageTime || 0) - (a.lastMessageTime || 0);
     });
-  }, [filteredChats, chatFolder, unreadCounts, pinnedVersion]);
+  }, [filteredChats, chatFolder, unreadCounts, pinnedVersion, customFolders]);
+
+  const folderFilteredChatsRef = useRef(folderFilteredChats);
+  folderFilteredChatsRef.current = folderFilteredChats;
+
+  useEffect(() => {
+    const sync = () => {
+      setDraftMap(getDraftMap());
+      setDraftTick((n) => n + 1);
+    };
+    window.addEventListener('nova-drafts', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('nova-drafts', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    const parseDeepLink = () => {
+      const h = String(window.location.hash || '');
+      const m = h.match(/^#chat\/(user|group)\/([^/]+)\/msg\/([^/?#]+)/i);
+      if (!m) return;
+      const type = m[1].toLowerCase() === 'group' ? 'group' : 'user';
+      const id = decodeURIComponent(m[2]);
+      const msgId = decodeURIComponent(m[3]);
+      setSelected({ type, id });
+      sessionStorage.setItem('nova_scroll_msg', msgId);
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#msg-${msgId}`);
+    };
+    parseDeepLink();
+    window.addEventListener('hashchange', parseDeepLink);
+    return () => window.removeEventListener('hashchange', parseDeepLink);
+  }, []);
 
   const searchMatchedUsers = chatSearchLower
     ? users
@@ -1259,6 +1411,7 @@ export default function Messenger() {
                       { id: 'users', label: t('folderUsers') },
                       { id: 'groups', label: t('folderGroups') },
                       { id: 'unread', label: t('folderUnread') },
+                      ...customFolders.map((f) => ({ id: `custom:${f.id}`, label: f.name })),
                     ].map((f) => (
                       <button
                         key={f.id}
@@ -1267,10 +1420,37 @@ export default function Messenger() {
                         aria-selected={chatFolder === f.id}
                         className={`chat-folder-tab${chatFolder === f.id ? ' active' : ''}`}
                         onClick={() => setChatFolder(f.id)}
+                        onContextMenu={(e) => {
+                          if (!String(f.id).startsWith('custom:')) return;
+                          e.preventDefault();
+                          const fid = String(f.id).slice('custom:'.length);
+                          if (window.confirm(t('folderDeleteConfirm'))) {
+                            deleteCustomFolder(fid);
+                            setCustomFolders(getCustomFolders());
+                            if (chatFolder === f.id) setChatFolder('all');
+                          }
+                        }}
                       >
                         {f.label}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className="chat-folder-tab chat-folder-tab--add"
+                      title={t('folderCreate')}
+                      aria-label={t('folderCreate')}
+                      onClick={() => {
+                        const name = window.prompt(t('folderCreatePrompt'));
+                        if (!name) return;
+                        const created = createCustomFolder(name);
+                        if (created) {
+                          setCustomFolders(getCustomFolders());
+                          setChatFolder(`custom:${created.id}`);
+                        }
+                      }}
+                    >
+                      +
+                    </button>
                   </div>
                 )}
                 {archivedChats.length > 0 && (
@@ -1326,6 +1506,18 @@ export default function Messenger() {
                         setSelected({ type: chat.type, id: chat.id });
                         closeSidebar();
                       }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setChatCtxMenu({
+                          x: e.clientX,
+                          y: e.clientY,
+                          type: chat.type,
+                          id: chat.id,
+                          muted: chatMuted,
+                          pinned: chatPinned,
+                          hasUnread,
+                        });
+                      }}
                     >
                       {chat.type === 'user' ? (
                         <>
@@ -1375,6 +1567,32 @@ export default function Messenger() {
                                 >
                                   {chatPinned ? '📌' : '📍'}
                                 </button>
+                                <button
+                                  type="button"
+                                  className="chat-list-pin-btn"
+                                  title={t('folderAddChat')}
+                                  aria-label={t('folderAddChat')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFolderMenuChat({ type: chat.type, id: chat.id });
+                                  }}
+                                >
+                                  📁
+                                </button>
+                                <button
+                                  type="button"
+                                  className="chat-list-pin-btn"
+                                  title={hasUnread ? t('markRead') : t('markUnread')}
+                                  aria-label={hasUnread ? t('markRead') : t('markUnread')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (hasUnread) clearUnread(chat.type, chat.id);
+                                    else setUnread(chat.type, chat.id, 1);
+                                    setUnreadCounts(getUnreadCounts());
+                                  }}
+                                >
+                                  {hasUnread ? '✓' : '●'}
+                                </button>
                                 {chat.lastMessageTime ? (
                                   <span className="chat-list-time">{formatChatListTime(chat.lastMessageTime)}</span>
                                 ) : null}
@@ -1382,7 +1600,12 @@ export default function Messenger() {
                             </div>
                             <div className="chat-list-bottom-row">
                               <span className="chat-list-preview">
-                                {activityPreview ? (
+                                {draftMap[`${chat.type}:${chat.id}`] ? (
+                                  <span className="chat-list-draft">
+                                    <span className="chat-list-draft-label">{t('draftLabel')}: </span>
+                                    {draftMap[`${chat.type}:${chat.id}`]}
+                                  </span>
+                                ) : activityPreview ? (
                                   <UserActivityPreview activities={activityPreview} t={t} />
                                 ) : statusLine || (chat.lastMessage ? chat.lastMessage : t('noMessages'))}
                               </span>
@@ -1423,13 +1646,46 @@ export default function Messenger() {
                                 >
                                   {chatPinned ? '📌' : '📍'}
                                 </button>
+                                <button
+                                  type="button"
+                                  className="chat-list-pin-btn"
+                                  title={t('folderAddChat')}
+                                  aria-label={t('folderAddChat')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFolderMenuChat({ type: chat.type, id: chat.id });
+                                  }}
+                                >
+                                  📁
+                                </button>
+                                <button
+                                  type="button"
+                                  className="chat-list-pin-btn"
+                                  title={hasUnread ? t('markRead') : t('markUnread')}
+                                  aria-label={hasUnread ? t('markRead') : t('markUnread')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (hasUnread) clearUnread(chat.type, chat.id);
+                                    else setUnread(chat.type, chat.id, 1);
+                                    setUnreadCounts(getUnreadCounts());
+                                  }}
+                                >
+                                  {hasUnread ? '✓' : '●'}
+                                </button>
                                 {chat.lastMessageTime ? (
                                   <span className="chat-list-time">{formatChatListTime(chat.lastMessageTime)}</span>
                                 ) : null}
                               </span>
                             </div>
                             <div className="chat-list-bottom-row">
-                              {chat.lastMessage && <span className="chat-list-preview">{chat.lastMessage}</span>}
+                              <span className="chat-list-preview">
+                                {draftMap[`${chat.type}:${chat.id}`] ? (
+                                  <span className="chat-list-draft">
+                                    <span className="chat-list-draft-label">{t('draftLabel')}: </span>
+                                    {draftMap[`${chat.type}:${chat.id}`]}
+                                  </span>
+                                ) : (chat.lastMessage || t('noMessages'))}
+                              </span>
                               <span className="chat-list-badges">
                                 {chatMuted && (
                                   <span className="chat-list-muted-icon" title={t('chatMutedBadge')}>🔇</span>
@@ -1752,6 +2008,7 @@ export default function Messenger() {
             currentUser={user}
             peer={currentChat}
             type={selected.type}
+            initialUnreadCount={openedUnreadCount}
             // Saved Messages: в ChatView это обычный user-chat, но id = мой user.id
             {...(selected?.type === 'user' && String(selected.id) === SAVED_CHAT_ID ? { type: 'user', peer: currentChat } : {})}
             users={users}
@@ -1955,6 +2212,155 @@ export default function Messenger() {
           onClose={() => setShowStatusPicker(false)}
           onUpdated={(updated) => updateUser(updated)}
         />
+      )}
+
+      {folderMenuChat && (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => setFolderMenuChat(null)}
+        >
+          <div
+            className="modal folder-assign-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>{t('folderAddChat')}</h3>
+            {customFolders.length === 0 ? (
+              <p className="folder-assign-empty">{t('folderEmptyHint')}</p>
+            ) : (
+              <ul className="folder-assign-list">
+                {customFolders.map((f) => {
+                  const inFolder = isChatInFolder(f.id, folderMenuChat.type, folderMenuChat.id);
+                  return (
+                    <li key={f.id}>
+                      <button
+                        type="button"
+                        className={`folder-assign-item${inFolder ? ' active' : ''}`}
+                        onClick={() => {
+                          if (inFolder) removeChatFromFolder(f.id, folderMenuChat.type, folderMenuChat.id);
+                          else addChatToFolder(f.id, folderMenuChat.type, folderMenuChat.id);
+                          setCustomFolders(getCustomFolders());
+                        }}
+                      >
+                        <span>{f.name}</span>
+                        <span>{inFolder ? '✓' : '+'}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <div className="modal-actions">
+              <button type="button" className="btn-primary" onClick={() => setFolderMenuChat(null)}>
+                {t('close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {chatCtxMenu && createPortal(
+        <div
+          className="chat-ctx-backdrop"
+          role="presentation"
+          onClick={() => setChatCtxMenu(null)}
+          onContextMenu={(e) => { e.preventDefault(); setChatCtxMenu(null); }}
+        >
+          <ul
+            className="chat-ctx-menu"
+            style={{
+              left: Math.min(chatCtxMenu.x, (typeof window !== 'undefined' ? window.innerWidth : 400) - 200),
+              top: Math.min(chatCtxMenu.y, (typeof window !== 'undefined' ? window.innerHeight : 400) - 220),
+            }}
+            role="menu"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <li role="none">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  toggleChatPinned(chatCtxMenu.type, chatCtxMenu.id);
+                  flashPinChat(chatCtxMenu.type, chatCtxMenu.id);
+                  setPinnedVersion((v) => v + 1);
+                  setChatCtxMenu(null);
+                }}
+              >
+                {chatCtxMenu.pinned ? t('chatUnpinned') : t('chatPinned')}
+              </button>
+            </li>
+            <li role="none">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  if (chatCtxMenu.muted) unmuteChat(chatCtxMenu.type, chatCtxMenu.id);
+                  else setChatMuted(chatCtxMenu.type, chatCtxMenu.id, { until: null, hideBadge: true });
+                  setMuteVersion((v) => v + 1);
+                  setChatCtxMenu(null);
+                }}
+              >
+                {chatCtxMenu.muted ? t('chatUnmute') : t('chatMute')}
+              </button>
+            </li>
+            <li role="none">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  if (chatCtxMenu.hasUnread) clearUnread(chatCtxMenu.type, chatCtxMenu.id);
+                  else setUnread(chatCtxMenu.type, chatCtxMenu.id, 1);
+                  setUnreadCounts(getUnreadCounts());
+                  setChatCtxMenu(null);
+                }}
+              >
+                {chatCtxMenu.hasUnread ? t('markRead') : t('markUnread')}
+              </button>
+            </li>
+            <li role="none">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setFolderMenuChat({ type: chatCtxMenu.type, id: chatCtxMenu.id });
+                  setChatCtxMenu(null);
+                }}
+              >
+                {t('folderAddChat')}
+              </button>
+            </li>
+            {String(chatCtxMenu.id) !== SAVED_CHAT_ID && (
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={async () => {
+                    try {
+                      await archiveChat(
+                        chatCtxMenu.type,
+                        chatCtxMenu.id === SAVED_CHAT_ID ? user.id : chatCtxMenu.id
+                      );
+                      if (selected?.type === chatCtxMenu.type && String(selected.id) === String(chatCtxMenu.id)) {
+                        setSelected(null);
+                      }
+                      const arch = await getArchivedChats();
+                      setArchivedChats(Array.isArray(arch) ? arch : []);
+                      loadRecentChats(await getUsers(), await getGroups());
+                    } catch (err) {
+                      console.error(err);
+                    }
+                    setChatCtxMenu(null);
+                  }}
+                >
+                  {t('archiveChat')}
+                </button>
+              </li>
+            )}
+          </ul>
+        </div>,
+        document.body
       )}
 
       {showMessengerSettings && (
@@ -2231,6 +2637,20 @@ export default function Messenger() {
 
       {showKeyboardShortcuts && (
         <KeyboardShortcutsModal onClose={() => setShowKeyboardShortcuts(false)} />
+      )}
+
+      {showQuickSwitcher && (
+        <QuickSwitcher
+          open={showQuickSwitcher}
+          onClose={() => setShowQuickSwitcher(false)}
+          recentChats={recentChats}
+          users={users}
+          groups={groups}
+          onSelect={(sel) => {
+            navigateToChat(sel);
+            closeSidebar();
+          }}
+        />
       )}
     </div>
   );

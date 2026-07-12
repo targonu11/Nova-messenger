@@ -1,0 +1,121 @@
+.quick-switcher-overlay {
+  z-index: 80;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.quick-switcher {
+  width: min(520px, 94vw);
+  margin-top: 12vh;
+  background: var(--bg-secondary, #1e1f22);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  align-self: flex-start;
+}
+
+.quick-switcher-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 1.05rem;
+  padding: 16px 18px;
+  outline: none;
+}
+
+.quick-switcher-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.quick-switcher-empty {
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.quick-switcher-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.quick-switcher-item.active,
+.quick-switcher-item:hover {
+  background: rgba(88, 101, 242, 0.18);
+}
+
+.quick-switcher-hash {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.quick-switcher-meta {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.quick-switcher-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quick-switcher-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.quick-switcher-badge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.quick-switcher-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.quick-switcher-foot kbd {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.7rem;
+  background: var(--bg-tertiary);
+}

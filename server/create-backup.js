@@ -4,36 +4,57 @@ import fs from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dbPath = join(__dirname, 'messenger.db');
-const backupPath = join(__dirname, 'бекап 1.db');
+const uploadsDir = join(__dirname, 'uploads');
+const backupRoot = join(__dirname, 'backups');
 
-try {
-  // Проверяем существование файла БД
+function stamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
+}
+
+function copyDir(src, dest) {
+  if (!fs.existsSync(src)) return 0;
+  fs.mkdirSync(dest, { recursive: true });
+  let count = 0;
+  for (const name of fs.readdirSync(src)) {
+    const from = join(src, name);
+    const to = join(dest, name);
+    const st = fs.statSync(from);
+    if (st.isDirectory()) {
+      count += copyDir(from, to);
+    } else {
+      fs.copyFileSync(from, to);
+      count += 1;
+    }
+  }
+  return count;
+}
+
+export function createFullBackup(label = 'manual') {
   if (!fs.existsSync(dbPath)) {
-    console.error('❌ Database file not found:', dbPath);
-    console.log('   The database might be created on first server start.');
+    throw new Error('Database file not found: ' + dbPath);
+  }
+  fs.mkdirSync(backupRoot, { recursive: true });
+  const dir = join(backupRoot, `nova-backup-${stamp()}-${label}`);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.copyFileSync(dbPath, join(dir, 'messenger.db'));
+  // совместимость со старым скриптом
+  fs.copyFileSync(dbPath, join(__dirname, 'бекап 1.db'));
+  const files = copyDir(uploadsDir, join(dir, 'uploads'));
+  const dbSize = fs.statSync(dbPath).size;
+  return { dir, dbSize, uploadFiles: files };
+}
+
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+if (isMain) {
+  try {
+    const result = createFullBackup('manual');
+    console.log('✓ Backup created:', result.dir);
+    console.log('  DB size:', (result.dbSize / 1024).toFixed(2), 'KB');
+    console.log('  Upload files:', result.uploadFiles);
+  } catch (error) {
+    console.error('❌ Error creating backup:', error.message);
     process.exit(1);
   }
-  
-  // Копируем файл базы данных
-  fs.copyFileSync(dbPath, backupPath);
-  
-  // Проверяем размер файлов
-  const dbStats = fs.statSync(dbPath);
-  const backupStats = fs.statSync(backupPath);
-  
-  console.log('✓ Backup created successfully!');
-  console.log('  Source: messenger.db');
-  console.log('  Backup: бекап 1.db');
-  console.log('  Database size:', (dbStats.size / 1024).toFixed(2), 'KB');
-  console.log('  Backup size:', (backupStats.size / 1024).toFixed(2), 'KB');
-  
-  if (dbStats.size === backupStats.size) {
-    console.log('  ✓ Backup size matches database size');
-  } else {
-    console.warn('  ⚠ Warning: Backup size differs from database size');
-  }
-} catch (error) {
-  console.error('❌ Error creating backup:', error.message);
-  console.error(error.stack);
-  process.exit(1);
 }

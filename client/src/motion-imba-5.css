@@ -1,0 +1,212 @@
+/* Nova Imba FX batch 5 — portal/quake/starfall + moods + overload */
+
+@keyframes imba-portal-in {
+  0% { opacity: 0; transform: scale(0) rotate(180deg); filter: hue-rotate(180deg); }
+  60% { opacity: 1; transform: scale(1.1) rotate(-10deg); }
+  100% { transform: scale(1) rotate(0); filter: none; }
+}
+
+@keyframes imba-shadow-in {
+  0% { opacity: 0; transform: translate(8px, 8px); filter: brightness(0.2); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes imba-chrome-in {
+  0% { opacity: 0; filter: contrast(2) brightness(2); transform: scale(0.9); }
+  100% { opacity: 1; filter: none; transform: scale(1); }
+}
+
+@keyframes imba-venom-in {
+  0% { opacity: 0; transform: skewX(-12deg) scale(0.8); filter: hue-rotate(80deg); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes imba-aurora-in {
+  0% { opacity: 0; filter: hue-rotate(0deg) saturate(2); }
+  50% { filter: hue-rotate(120deg) saturate(2); }
+  100% { opacity: 1; filter: none; }
+}
+
+@keyframes imba-quake-in {
+  0% { opacity: 0; transform: translateY(20px); }
+  20% { opacity: 1; transform: translate(-6px, -4px); }
+  40% { transform: translate(5px, 3px); }
+  60% { transform: translate(-3px, 2px); }
+  100% { transform: none; }
+}
+
+@keyframes imba-starfall-in {
+  0% { opacity: 0; transform: translateY(-30px) scale(0.7); filter: brightness(2); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes imba-bubble-in {
+  0% { opacity: 0; transform: scale(0.3); border-radius: 50%; }
+  70% { transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes imba-ember-in {
+  0% { opacity: 0; transform: translateY(14px); filter: brightness(1.8) sepia(0.4); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes imba-static-in {
+  0%, 30%, 60% { opacity: 0.2; filter: contrast(3); }
+  15%, 45%, 75% { opacity: 1; filter: contrast(1.2); }
+  100% { opacity: 1; filter: none; }
+}
+
+@keyframes imba-star-fall {
+  0% { transform: translateY(-10%) translateX(0); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(120%) translateX(20px); opacity: 0; }
+}
+
+@keyframes imba-overload-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 0 transparent; }
+  50% { box-shadow: inset 0 0 40px color-mix(in srgb, var(--accent) 25%, transparent); }
+}
+
+@keyframes imba-mood-shift {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--portal .message-bubble {
+  animation: imba-portal-in 0.6s cubic-bezier(0.22, 1.3, 0.36, 1) both;
+  border: 1px solid color-mix(in srgb, #b44dff 55%, transparent);
+  box-shadow: 0 0 24px rgba(160, 60, 255, 0.4);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--shadow .message-bubble {
+  animation: imba-shadow-in 0.5s ease both;
+  border: 1px solid color-mix(in srgb, #222 80%, #888);
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.45);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--chrome .message-bubble {
+  animation: imba-chrome-in 0.5s ease both;
+  border: 1px solid color-mix(in srgb, #ddd 60%, transparent);
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.12), transparent 40%, rgba(255,255,255,0.08));
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--venom .message-bubble {
+  animation: imba-venom-in 0.5s ease both;
+  border: 1px solid color-mix(in srgb, #7dff3a 55%, transparent);
+  color: color-mix(in srgb, #b6ff6a 75%, white);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--aurora .message-bubble {
+  animation: imba-aurora-in 0.7s ease both;
+  border: 1px solid transparent;
+  background-image:
+    linear-gradient(var(--bg-elevated, #1e1e24), var(--bg-elevated, #1e1e24)),
+    linear-gradient(120deg, #5cffb0, #5c9bff, #c45cff, #5cffb0);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--quake .message-bubble {
+  animation: imba-quake-in 0.55s ease both;
+  border: 1px solid color-mix(in srgb, #ff6a1a 55%, transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--starfall .message-bubble {
+  animation: imba-starfall-in 0.55s ease both;
+  border: 1px solid color-mix(in srgb, #ffe566 50%, transparent);
+  box-shadow: 0 0 18px rgba(255, 220, 100, 0.4);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--bubble .message-bubble {
+  animation: imba-bubble-in 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  border: 1px solid color-mix(in srgb, #7ad7ff 45%, transparent);
+  border-radius: 22px !important;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--ember .message-bubble {
+  animation: imba-ember-in 0.55s ease both, imba-fire-glow 1.4s ease 0.35s 2;
+  border: 1px solid color-mix(in srgb, #ff8a3c 55%, transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--static .message-bubble {
+  animation: imba-static-in 0.55s steps(3, end) both;
+  border: 1px solid color-mix(in srgb, #aaa 40%, transparent);
+}
+
+.imba-star {
+  position: absolute;
+  top: 0;
+  color: #ffe9a0;
+  font-size: 10px;
+  opacity: 0;
+  animation: imba-star-fall linear infinite;
+  text-shadow: 0 0 8px rgba(255, 220, 100, 0.8);
+  pointer-events: none;
+}
+
+.imba-chat-fx-layer--overload {
+  animation: imba-overload-pulse 1.1s ease-in-out infinite;
+}
+
+.imba-mood {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  animation: imba-mood-shift 0.4s ease;
+  mix-blend-mode: soft-light;
+}
+
+.imba-mood--neon { background: radial-gradient(circle at 20% 0%, rgba(180,60,255,0.28), transparent 55%); }
+.imba-mood--ember { background: radial-gradient(circle at 80% 100%, rgba(255,100,30,0.3), transparent 55%); }
+.imba-mood--ocean { background: radial-gradient(circle at 50% 100%, rgba(40,140,255,0.28), transparent 60%); }
+.imba-mood--toxic { background: radial-gradient(circle at 50% 0%, rgba(140,255,40,0.22), transparent 55%); }
+.imba-mood--midnight { background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0.35), transparent 70%); }
+
+.message-fx-moods {
+  display: flex;
+  gap: 4px;
+  padding: 0 10px 4px;
+}
+
+.message-fx-mood-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.7;
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.2s ease;
+}
+
+.message-fx-mood-btn:hover { opacity: 1; transform: translateY(-1px); }
+.message-fx-mood-btn.active {
+  opacity: 1;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.imba-mega-toast--legendary {
+  color: #ff6af0;
+  font-size: 32px;
+  text-shadow: 0 0 24px #ff6af0, 0 0 12px #ffd24d, 0 3px 12px rgba(0,0,0,0.75);
+}
+
+.imba-screen-flash--portal { background: radial-gradient(circle, rgba(160,60,255,0.35), transparent 55%); }
+.imba-screen-flash--quake { background: radial-gradient(circle, rgba(255,100,30,0.3), transparent 55%); }
+.imba-screen-flash--starfall { background: radial-gradient(circle at 50% 0%, rgba(255,230,120,0.35), transparent 60%); }
+.imba-screen-flash--aurora { background: linear-gradient(120deg, rgba(92,255,176,0.2), rgba(92,155,255,0.2), rgba(196,92,255,0.2)); }
+.imba-screen-flash--ember { background: radial-gradient(circle, rgba(255,120,40,0.3), transparent 55%); }
+.imba-screen-flash--venom { background: radial-gradient(circle, rgba(120,255,40,0.28), transparent 55%); }
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .chat-view--overload .chat-header {
+  animation: imba-overload-pulse 0.9s ease-in-out infinite;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-in.own .message-bubble {
+  transition: transform 0.2s ease;
+}

@@ -33,8 +33,8 @@ const defaults = {
   uiChatDensity: 'comfortable',
   /** normal | soft */
   uiRadius: 'normal',
-  /** Карточка профиля сверху чата (стиль Discord) */
-  uiShowChatProfileTop: true,
+  /** Карточка профиля сверху чата (выкл. по умолчанию — мешает чату) */
+  uiShowChatProfileTop: false,
   /** Узкий | обычный | широкий сайдбар */
   uiSidebarWidth: 'normal',
   /** Отступы между сообщениями: tight | normal | relaxed */
@@ -49,6 +49,8 @@ const defaults = {
   voiceAutoShowTranscript: true,
   /** Язык перевода голосовых сообщений (ru, en, uk, de) */
   voicePreferredLang: 'ru',
+  /** Imba FX — эпичные анимации сообщений, presence aurora, combo */
+  uiImbaFx: true,
 };
 
 function readAll() {

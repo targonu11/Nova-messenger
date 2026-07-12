@@ -304,10 +304,6 @@ const uploadAttachment = multer({
 // Инициализация БД и создание аккаунтов
 await initDb();
 initConnectionsDb(db);
-  await seedUsers();
-  grantMainAdminPerks();
-  seedSystemBots();
-  ensureSystemBotCommands();
 
 // Миграция: фон группы
 try {
@@ -341,6 +337,11 @@ try {
     console.warn('Migration avatar_ring:', err.message);
   }
 }
+
+await seedUsers();
+grantMainAdminPerks();
+seedSystemBots();
+ensureSystemBotCommands();
 
 // Логирование запросов (без сериализации body, чтобы не падать)
 app.use('/api', (req, res, next) => {
@@ -884,6 +885,160 @@ app.get('/api/version', (req, res) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, t: Date.now() });
+});
+
+const translateCache = new Map();
+const TRANSLATE_TTL_MS = 60 * 60 * 1000;
+
+app.post('/api/translate', authMiddleware, async (req, res) => {
+  try {
+    const text = String(req.body?.text || '').trim();
+    if (!text) return res.status(400).json({ error: 'Empty text' });
+    if (text.length > 4500) return res.status(400).json({ error: 'Text too long' });
+    const to = String(req.body?.to || 'en').trim().toLowerCase().slice(0, 8) || 'en';
+    const from = String(req.body?.from || 'auto').trim().toLowerCase().slice(0, 8) || 'auto';
+    const cacheKey = `${from}|${to}|${text}`;
+    const cached = translateCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < TRANSLATE_TTL_MS) {
+      return res.json(cached.data);
+    }
+    const langpair = `Autodetect|${to}`;
+    const chunks = [];
+    const src = text.slice(0, 2000);
+    for (let i = 0; i < src.length; i += 480) {
+      chunks.push(src.slice(i, i + 480));
+    }
+    const translatedParts = [];
+    for (const chunk of chunks) {
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=${encodeURIComponent(langpair)}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      let upstream;
+      try {
+        upstream = await fetch(url, { signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
+      if (!upstream.ok) {
+        return res.status(502).json({ error: 'Translate upstream failed' });
+      }
+      const raw = await upstream.json().catch(() => ({}));
+      const part = String(raw?.responseData?.translatedText || '').trim();
+      if (!part) {
+        return res.status(502).json({ error: 'No translation' });
+      }
+      translatedParts.push(part);
+    }
+    const translated = translatedParts.join(' ');
+    const data = {
+      text: translated,
+      to,
+      from: 'auto',
+    };
+    translateCache.set(cacheKey, { at: Date.now(), data });
+    if (translateCache.size > 300) {
+      const first = translateCache.keys().next().value;
+      translateCache.delete(first);
+    }
+    res.json(data);
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      return res.status(504).json({ error: 'Translate timeout' });
+    }
+    console.error('translate', err);
+    res.status(500).json({ error: 'Translate failed' });
+  }
+});
+
+const linkPreviewCache = new Map();
+const LINK_PREVIEW_TTL_MS = 30 * 60 * 1000;
+
+function extractMeta(html, prop) {
+  const patterns = [
+    new RegExp(`<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i'),
+    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+property=["']${prop}["']`, 'i'),
+    new RegExp(`<meta[^>]+name=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i'),
+    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+name=["']${prop}["']`, 'i'),
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m?.[1]) return m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+  }
+  return '';
+}
+
+app.get('/api/link-preview', authMiddleware, async (req, res) => {
+  try {
+    const raw = String(req.query.url || '').trim();
+    let parsed;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      return res.status(400).json({ error: 'Invalid URL' });
+    }
+    if (!/^https?:$/i.test(parsed.protocol)) {
+      return res.status(400).json({ error: 'Only http(s) URLs' });
+    }
+    const key = parsed.href;
+    const cached = linkPreviewCache.get(key);
+    if (cached && Date.now() - cached.at < LINK_PREVIEW_TTL_MS) {
+      return res.json(cached.data);
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    let html = '';
+    try {
+      const upstream = await fetch(key, {
+        signal: controller.signal,
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'NovaMessengerBot/1.0 (+link-preview)',
+          Accept: 'text/html,application/xhtml+xml',
+        },
+      });
+      if (!upstream.ok) {
+        clearTimeout(timer);
+        return res.status(404).json({ error: 'Fetch failed' });
+      }
+      const ctype = String(upstream.headers.get('content-type') || '');
+      if (!/text\/html|application\/xhtml/i.test(ctype)) {
+        clearTimeout(timer);
+        const data = { url: key, title: parsed.hostname, description: '', image: '' };
+        linkPreviewCache.set(key, { at: Date.now(), data });
+        return res.json(data);
+      }
+      html = await upstream.text();
+    } finally {
+      clearTimeout(timer);
+    }
+    if (html.length > 400000) html = html.slice(0, 400000);
+    const title = extractMeta(html, 'og:title')
+      || extractMeta(html, 'twitter:title')
+      || (html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] || '').trim();
+    const description = extractMeta(html, 'og:description')
+      || extractMeta(html, 'twitter:description')
+      || extractMeta(html, 'description');
+    let image = extractMeta(html, 'og:image') || extractMeta(html, 'twitter:image');
+    if (image) {
+      try { image = new URL(image, key).href; } catch { image = ''; }
+    }
+    const data = {
+      url: key,
+      title: String(title || '').slice(0, 160),
+      description: String(description || '').slice(0, 280),
+      image: String(image || '').slice(0, 500),
+    };
+    linkPreviewCache.set(key, { at: Date.now(), data });
+    if (linkPreviewCache.size > 300) {
+      const first = linkPreviewCache.keys().next().value;
+      linkPreviewCache.delete(first);
+    }
+    res.json(data);
+  } catch (err) {
+    if (err?.name === 'AbortError') return res.status(408).json({ error: 'Timeout' });
+    console.error('link-preview error:', err.message);
+    res.status(500).json({ error: 'Preview failed' });
+  }
 });
 
 // Тестовый endpoint для проверки маршрута групп
@@ -1777,9 +1932,16 @@ app.put('/api/users/me', authMiddleware, (req, res) => {
 app.put('/api/users/me/status', authMiddleware, (req, res) => {
   try {
     const { emoji, text, mode } = req.body || {};
-    const emojiVal = emoji != null ? String(emoji).trim().slice(0, 8) : '';
-    const textVal = text != null ? String(text).trim().slice(0, 80) : '';
-    const modeVal = ['online', 'idle', 'dnd'].includes(mode) ? mode : 'online';
+    const current = db.prepare('SELECT custom_status_emoji, custom_status_text, custom_status_mode FROM users WHERE id = ?').get(req.userId) || {};
+    const emojiVal = emoji !== undefined
+      ? String(emoji || '').trim().slice(0, 8)
+      : (current.custom_status_emoji || '');
+    const textVal = text !== undefined
+      ? String(text || '').trim().slice(0, 80)
+      : (current.custom_status_text || '');
+    const modeVal = ['online', 'idle', 'dnd'].includes(mode)
+      ? mode
+      : (['online', 'idle', 'dnd'].includes(current.custom_status_mode) ? current.custom_status_mode : 'online');
     db.prepare(`
       UPDATE users SET custom_status_emoji = ?, custom_status_text = ?, custom_status_mode = ? WHERE id = ?
     `).run(emojiVal || null, textVal || null, modeVal, req.userId);
@@ -1928,11 +2090,28 @@ app.post('/api/users/avatar', authMiddleware, upload.single('avatar'), (req, res
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    
-  const avatarPath = '/uploads/' + req.file.filename;
-  db.prepare('UPDATE users SET avatar_path = ? WHERE id = ?').run(avatarPath, req.userId);
-    emitToUser(req.userId, 'sync', { type: 'profile' });
-  res.json({ avatarPath });
+
+    const prev = db.prepare('SELECT avatar_path FROM users WHERE id = ?').get(req.userId);
+    const avatarPath = '/uploads/' + req.file.filename;
+    db.prepare('UPDATE users SET avatar_path = ? WHERE id = ?').run(avatarPath, req.userId);
+    dbSave();
+
+    // Удаляем старый файл аватара (только из /uploads, не трогаем чужие)
+    try {
+      const old = prev?.avatar_path;
+      if (old && typeof old === 'string' && old.startsWith('/uploads/') && old !== avatarPath) {
+        const oldFile = join(__dirname, old.replace(/^\//, ''));
+        if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+      }
+    } catch (e) {
+      console.warn('Old avatar cleanup:', e.message);
+    }
+
+    emitToUser(req.userId, 'sync', { type: 'profile', avatarPath });
+    try {
+      io.emit('user:avatar', { userId: req.userId, avatarPath });
+    } catch (_) { /* ignore */ }
+    res.json({ avatarPath });
   } catch (err) {
     console.error('Avatar upload error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -3093,7 +3272,7 @@ app.put('/api/groups/:id/members/:userId/role', authMiddleware, (req, res) => {
 // Получение сообщений
 app.get('/api/messages', authMiddleware, (req, res) => {
   try {
-  const { type, id, limit, before } = req.query;
+  const { type, id, limit, before, around } = req.query;
 
     if (!type || !id) {
       return res.status(400).json({ error: 'type and id are required' });
@@ -3102,6 +3281,121 @@ app.get('/api/messages', authMiddleware, (req, res) => {
     const recipientType = type === 'group' ? 'group' : 'user';
     const lim = Math.min(300, Math.max(1, Number(limit) || 120));
     const beforeTs = before != null && before !== '' ? Number(before) : null;
+    const aroundTs = around != null && around !== '' ? Number(around) : null;
+    let aroundId = null;
+
+    // Jump-to-date: load a window around a unix timestamp
+    if (Number.isFinite(aroundTs) && aroundTs > 0 && !Number.isFinite(beforeTs)) {
+      const half = Math.max(20, Math.floor(lim / 2));
+      const baseWhereUser = `m.recipient_type = 'user' AND (
+          (m.sender_id = ? AND m.recipient_id = ?) OR (m.sender_id = ? AND m.recipient_id = ?)
+        )`;
+      const baseWhereGroup = `m.recipient_type = ? AND m.recipient_id = ?`;
+      let beforeRows;
+      let afterRows;
+      if (recipientType === 'user') {
+        beforeRows = db.prepare(`
+          SELECT m.id, m.sender_id, m.recipient_type, m.recipient_id, m.content, m.created_at, m.attachment_path,
+                 m.reply_to_id, m.edited_at, m.is_deleted, m.forward_from_id, m.forward_from_name,
+                 m.message_type, m.call_duration_sec, m.voice_meta, m.message_meta,
+                 m.is_silent, m.view_count, m.posted_as_channel
+          FROM messages m
+          WHERE ${baseWhereUser} AND m.created_at <= ?
+          ORDER BY m.created_at DESC
+          LIMIT ?
+        `).all(req.userId, id, id, req.userId, aroundTs, half + 1);
+        afterRows = db.prepare(`
+          SELECT m.id, m.sender_id, m.recipient_type, m.recipient_id, m.content, m.created_at, m.attachment_path,
+                 m.reply_to_id, m.edited_at, m.is_deleted, m.forward_from_id, m.forward_from_name,
+                 m.message_type, m.call_duration_sec, m.voice_meta, m.message_meta,
+                 m.is_silent, m.view_count, m.posted_as_channel
+          FROM messages m
+          WHERE ${baseWhereUser} AND m.created_at > ?
+          ORDER BY m.created_at ASC
+          LIMIT ?
+        `).all(req.userId, id, id, req.userId, aroundTs, half);
+      } else {
+        beforeRows = db.prepare(`
+          SELECT m.id, m.sender_id, m.recipient_type, m.recipient_id, m.content, m.created_at, m.attachment_path,
+                 m.reply_to_id, m.edited_at, m.is_deleted, m.forward_from_id, m.forward_from_name,
+                 m.message_type, m.call_duration_sec, m.voice_meta, m.message_meta,
+                 m.is_silent, m.view_count, m.posted_as_channel
+          FROM messages m
+          WHERE ${baseWhereGroup} AND m.created_at <= ?
+          ORDER BY m.created_at DESC
+          LIMIT ?
+        `).all(recipientType, id, aroundTs, half + 1);
+        afterRows = db.prepare(`
+          SELECT m.id, m.sender_id, m.recipient_type, m.recipient_id, m.content, m.created_at, m.attachment_path,
+                 m.reply_to_id, m.edited_at, m.is_deleted, m.forward_from_id, m.forward_from_name,
+                 m.message_type, m.call_duration_sec, m.voice_meta, m.message_meta,
+                 m.is_silent, m.view_count, m.posted_as_channel
+          FROM messages m
+          WHERE ${baseWhereGroup} AND m.created_at > ?
+          ORDER BY m.created_at ASC
+          LIMIT ?
+        `).all(recipientType, id, aroundTs, half);
+      }
+      const hasMoreAround = beforeRows.length > half;
+      if (hasMoreAround) beforeRows = beforeRows.slice(0, half);
+      aroundId = beforeRows[0]?.id || afterRows[0]?.id || null;
+      let rows = [...beforeRows.reverse(), ...afterRows];
+      // fall through to shared mapping below via assigning to outer rows
+      const getReplyToAround = (replyToId) => {
+        if (!replyToId) return null;
+        const r = db.prepare('SELECT id, content, sender_id FROM messages WHERE id = ?').get(replyToId);
+        if (!r) return null;
+        const s = db.prepare('SELECT display_name FROM users WHERE id = ?').get(r.sender_id);
+        return { id: r.id, content: r.content || '', senderName: s?.display_name || '' };
+      };
+      const messageIds = rows.map((row) => row.id);
+      const reactionGroups = getReactionsGroupedByMessageIds(messageIds);
+      const starredSet = getStarredSetForUserMessageIds(req.userId, messageIds);
+      const messages = rows.map((m) => {
+        const sender = db.prepare('SELECT display_name, avatar_path FROM users WHERE id = ?').get(m.sender_id);
+        const replyTo = getReplyToAround(m.reply_to_id);
+        const rg = reactionGroups[m.id] || {};
+        let msg = {
+          id: m.id,
+          senderId: m.sender_id,
+          senderName: sender?.display_name,
+          senderAvatar: sender?.avatar_path,
+          content: m.content,
+          createdAt: m.created_at,
+          attachmentPath: m.attachment_path || null,
+          replyToId: m.reply_to_id || null,
+          replyToContent: replyTo?.content ?? null,
+          replyToSenderName: replyTo?.senderName ?? null,
+          editedAt: m.edited_at || null,
+          isDeleted: Number(m.is_deleted) === 1,
+          forwardFromId: m.forward_from_id || null,
+          forwardFromName: m.forward_from_name || null,
+          messageType: m.message_type || null,
+          messageMeta: parseMessageMeta(m.message_meta),
+          callDurationSec: m.call_duration_sec != null ? m.call_duration_sec : null,
+          voiceMeta: parseVoiceMeta(m.voice_meta),
+          reactions: toClientReactions(rg, req.userId),
+          starredMe: starredSet.has(m.id),
+          ...mapMessageExtraFields(m),
+        };
+        if (recipientType === 'group') {
+          msg = applyChannelPostDisplay(db, id, msg);
+        }
+        return msg;
+      });
+      const pinned = getPinnedListForChat(recipientType, id);
+      let peerLastReadAt = null;
+      if (recipientType === 'user') {
+        try {
+          const rr = db.prepare('SELECT last_read_created_at FROM dm_read_receipts WHERE reader_id = ? AND peer_id = ?').get(id, req.userId);
+          peerLastReadAt = rr?.last_read_created_at != null ? Number(rr.last_read_created_at) : null;
+        } catch {
+          peerLastReadAt = null;
+        }
+      }
+      return res.json({ messages, pinned, peerLastReadAt, hasMore: hasMoreAround, aroundId });
+    }
+
     let rows;
     if (recipientType === 'user') {
       // Личный чат: сообщения в обе стороны (я → другой и другой → я)
@@ -3507,8 +3801,11 @@ io.on('connection', (socket) => {
     const hasFileAttachment = attachmentPathPayload && typeof attachmentPathPayload === 'string' && attachmentPathPayload.trim().length > 0;
     const hasSticker = stickerId && typeof stickerId === 'string' && stickerId.trim().length > 0;
     const contentVal = isVoice ? '' : (content?.trim() ?? '');
+    const wantsPoll = messageTypePayload === 'poll'
+      || (messageMetaPayload && typeof messageMetaPayload === 'object' && Array.isArray(messageMetaPayload.options));
     if (!currentUserId) return;
-    if (!isVoice && !isForward && !contentVal && !hasFileAttachment && !hasSticker) return;
+    if (!isVoice && !isForward && !contentVal && !hasFileAttachment && !hasSticker && !wantsPoll) return;
+
 
     if (recipientType === 'user') {
       const blocked = db.prepare('SELECT 1 FROM blocks WHERE user_id = ? AND blocked_user_id = ?').get(recipientId, currentUserId);
@@ -3541,6 +3838,17 @@ io.on('connection', (socket) => {
     let filePath = hasFileAttachment ? attachmentPathPayload.trim() : null;
     let messageType = messageTypePayload && typeof messageTypePayload === 'string' ? messageTypePayload.trim() : null;
     let messageMeta = messageMetaPayload && typeof messageMetaPayload === 'object' ? messageMetaPayload : parseMessageMeta(messageMetaPayload);
+    // Imba FX whitelist
+    if (messageMeta && typeof messageMeta === 'object') {
+      const allowedFx = new Set(['fire', 'ice', 'party', 'shock', 'void', 'neon', 'glitch', 'rainbow', 'boom', 'love', 'matrix', 'ghost', 'gold', 'wave', 'meteor', 'laser', 'pixel', 'smoke', 'thunder', 'candy', 'cyber', 'nova', 'hologram', 'toxic', 'mirror', 'pulse', 'eclipse', 'drift', 'spark', 'blizzard', 'portal', 'shadow', 'chrome', 'venom', 'aurora', 'quake', 'starfall', 'bubble', 'ember', 'static']);
+      if (messageMeta.fx != null && !allowedFx.has(String(messageMeta.fx))) {
+        const { fx: _drop, ...rest } = messageMeta;
+        messageMeta = Object.keys(rest).length ? rest : null;
+      }
+      if (messageMeta && messageMeta.critical != null) {
+        messageMeta.critical = !!messageMeta.critical;
+      }
+    }
 
     if (hasSticker) {
       const sticker = getStickerById(stickerId.trim());
@@ -3561,6 +3869,25 @@ io.on('connection', (socket) => {
         packId: sticker.pack_id,
         emoji: sticker.emoji,
         mediaType: sticker.media_type,
+      };
+    }
+
+    if (wantsPoll && !hasSticker && !isVoice && !isForward) {
+      const opts = Array.isArray(messageMeta?.options)
+        ? messageMeta.options.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 10)
+        : [];
+      if (opts.length < 2 || !contentVal) {
+        socket.emit('send_message_error', { code: 'poll', message: 'Poll needs a question and at least 2 options' });
+        return;
+      }
+      messageType = 'poll';
+      const votes = {};
+      opts.forEach((_, i) => { votes[String(i)] = []; });
+      messageMeta = {
+        options: opts,
+        votes,
+        multi: !!messageMeta?.multi,
+        closed: false,
       };
     }
 
@@ -3668,9 +3995,10 @@ io.on('connection', (socket) => {
     if (!currentUserId || !messageId || content == null) return;
     const c = String(content).trim();
     try {
-      const row = db.prepare('SELECT id, sender_id, recipient_type, recipient_id, attachment_path FROM messages WHERE id = ?').get(messageId);
+      const row = db.prepare('SELECT id, sender_id, recipient_type, recipient_id, attachment_path, message_type FROM messages WHERE id = ?').get(messageId);
       if (!row || row.sender_id !== currentUserId) return;
       if (row.attachment_path) return; // голосовые не редактируем
+      if (row.message_type === 'poll') return;
       const editedAt = Math.floor(Date.now() / 1000);
       db.prepare('UPDATE messages SET content = ?, edited_at = ? WHERE id = ?').run(c, editedAt, messageId);
       const payload = { messageId, content: c, editedAt, recipientType: row.recipient_type, recipientId: row.recipient_id };
@@ -3683,6 +4011,56 @@ io.on('connection', (socket) => {
       }
     } catch (err) {
       console.error('Edit message error:', err);
+    }
+  });
+
+  socket.on('vote_poll', ({ messageId, optionIndex }) => {
+    if (!currentUserId || !messageId) return;
+    const idx = Number(optionIndex);
+    if (!Number.isInteger(idx) || idx < 0) return;
+    try {
+      const row = db.prepare('SELECT id, sender_id, recipient_type, recipient_id, message_type, message_meta FROM messages WHERE id = ? AND is_deleted = 0').get(messageId);
+      if (!row || row.message_type !== 'poll') return;
+      if (!userCanAccessChat(currentUserId, row.recipient_type, row.recipient_id)) return;
+      const meta = parseMessageMeta(row.message_meta) || {};
+      const options = Array.isArray(meta.options) ? meta.options : [];
+      if (idx >= options.length) return;
+      if (meta.closed) return;
+      const votes = meta.votes && typeof meta.votes === 'object' ? { ...meta.votes } : {};
+      options.forEach((_, i) => {
+        const k = String(i);
+        if (!Array.isArray(votes[k])) votes[k] = [];
+        else votes[k] = votes[k].map(String);
+      });
+      const key = String(idx);
+      const uid = String(currentUserId);
+      const already = votes[key].includes(uid);
+      if (meta.multi) {
+        votes[key] = already ? votes[key].filter((x) => x !== uid) : [...votes[key], uid];
+      } else {
+        Object.keys(votes).forEach((k) => {
+          votes[k] = votes[k].filter((x) => x !== uid);
+        });
+        if (!already) votes[key].push(uid);
+      }
+      const nextMeta = { ...meta, options, votes, multi: !!meta.multi, closed: !!meta.closed };
+      db.prepare('UPDATE messages SET message_meta = ? WHERE id = ?').run(JSON.stringify(nextMeta), messageId);
+      dbSave();
+      const payload = {
+        messageId,
+        messageMeta: nextMeta,
+        recipientType: row.recipient_type,
+        recipientId: String(row.recipient_id),
+      };
+      if (row.recipient_type === 'user') {
+        emitToUser(row.recipient_id, 'message_updated', payload);
+        emitToUser(currentUserId, 'message_updated', payload);
+      } else {
+        const members = db.prepare('SELECT user_id FROM group_members WHERE group_id = ?').all(row.recipient_id);
+        members.forEach((member) => emitToUser(member.user_id, 'message_updated', payload));
+      }
+    } catch (err) {
+      console.error('vote_poll error:', err.message);
     }
   });
 
@@ -4147,6 +4525,39 @@ app.use((err, req, res, next) => {
     res.status(500).end('Server error');
   }
 });
+
+function persistAndBackup(reason = 'shutdown') {
+  try {
+    dbSave();
+  } catch (e) {
+    console.warn('[server] dbSave on', reason, e.message);
+  }
+  try {
+    // динамический импорт, чтобы не ломать старт при отсутствии файла
+    import('./create-backup.js')
+      .then((m) => {
+        const r = m.createFullBackup(reason);
+        console.log(`[server] Backup (${reason}):`, r.dir);
+      })
+      .catch((e) => console.warn('[server] Backup skipped:', e.message));
+  } catch (e) {
+    console.warn('[server] Backup skipped:', e.message);
+  }
+}
+
+process.on('SIGINT', () => {
+  persistAndBackup('sigint');
+  setTimeout(() => process.exit(0), 400);
+});
+process.on('SIGTERM', () => {
+  persistAndBackup('sigterm');
+  setTimeout(() => process.exit(0), 400);
+});
+
+// Периодическое сохранение БД (на случай аварийного закрытия окна)
+setInterval(() => {
+  try { dbSave(); } catch (_) { /* ignore */ }
+}, 30_000).unref?.();
 
 const PORT = Number(process.env.PORT) || 3001;
 const portFilePath = join(__dirname, '.nova-port');

@@ -1,0 +1,216 @@
+/* Nova Imba FX — эпичные анимации сообщений, presence, combo */
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) {
+  /* ── Message FX entrances ── */
+}
+
+@keyframes imba-fire-in {
+  0% { opacity: 0; transform: translateY(18px) scale(0.86); filter: brightness(2.2) saturate(1.8) hue-rotate(-20deg); }
+  45% { opacity: 1; transform: translateY(-4px) scale(1.04); filter: brightness(1.35) saturate(1.4); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: none; }
+}
+
+@keyframes imba-ice-in {
+  0% { opacity: 0; transform: translateY(-12px) scale(0.9); filter: blur(6px) brightness(1.6) hue-rotate(160deg); }
+  55% { filter: blur(0) brightness(1.15); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: none; }
+}
+
+@keyframes imba-party-in {
+  0% { opacity: 0; transform: scale(0.2) rotate(-18deg); }
+  55% { transform: scale(1.12) rotate(6deg); }
+  75% { transform: scale(0.96) rotate(-3deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@keyframes imba-shock-in {
+  0% { opacity: 0; transform: translateX(-10px) skewX(-8deg); filter: brightness(3); }
+  20% { opacity: 1; transform: translateX(8px) skewX(6deg); }
+  40% { transform: translateX(-6px) skewX(-4deg); }
+  60% { transform: translateX(4px) skewX(2deg); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes imba-void-in {
+  0% { opacity: 0; transform: scale(1.4); filter: contrast(0.2) brightness(0.3); }
+  100% { opacity: 1; transform: scale(1); filter: none; }
+}
+
+@keyframes imba-fire-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 100, 20, 0); }
+  50% { box-shadow: 0 0 22px 2px rgba(255, 90, 20, 0.45); }
+}
+
+@keyframes imba-ice-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(120, 220, 255, 0); }
+  50% { box-shadow: 0 0 18px 2px rgba(120, 210, 255, 0.4); }
+}
+
+@keyframes imba-party-spark {
+  0%, 100% { filter: hue-rotate(0deg); }
+  50% { filter: hue-rotate(40deg); }
+}
+
+@keyframes imba-aurora {
+  0%, 100% { box-shadow: 0 0 0 2px #0f0, 0 0 10px 2px rgba(80, 255, 120, 0.55); }
+  50% { box-shadow: 0 0 0 2px #3f3, 0 0 18px 4px rgba(80, 255, 160, 0.85); }
+}
+
+@keyframes imba-combo-fly {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.6); }
+  20% { opacity: 1; transform: translate(-50%, -4px) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -48px) scale(0.9); }
+}
+
+@keyframes imba-send-ring {
+  0% { transform: scale(0.6); opacity: 0.7; border-color: var(--accent); }
+  100% { transform: scale(2.2); opacity: 0; border-color: transparent; }
+}
+
+@keyframes imba-chat-wipe {
+  0% { clip-path: inset(0 0 100% 0); opacity: 0.4; }
+  100% { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+
+@keyframes imba-magnetic {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes imba-fx-bar-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes imba-streak-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--fire .message-bubble {
+  animation: imba-fire-in 0.55s cubic-bezier(0.22, 1.2, 0.36, 1) both, imba-fire-glow 1.6s ease-in-out 0.4s 2;
+  border: 1px solid color-mix(in srgb, #ff6a1a 45%, transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--ice .message-bubble {
+  animation: imba-ice-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both, imba-ice-glow 1.8s ease-in-out 0.45s 2;
+  border: 1px solid color-mix(in srgb, #7ad7ff 50%, transparent);
+  background-image: linear-gradient(180deg, color-mix(in srgb, #7ad7ff 12%, transparent), transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--party .message-bubble {
+  animation: imba-party-in 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) both, imba-party-spark 1.2s ease 0.4s 3;
+  border: 1px solid color-mix(in srgb, #ff4fd8 40%, transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--shock .message-bubble {
+  animation: imba-shock-in 0.5s ease both;
+  border: 1px solid color-mix(in srgb, #ffe566 55%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, #ffe566 35%, transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--void .message-bubble {
+  animation: imba-void-in 0.65s ease both;
+  border: 1px solid color-mix(in srgb, #9b5cff 35%, transparent);
+  background-image: radial-gradient(circle at 30% 20%, color-mix(in srgb, #9b5cff 18%, transparent), transparent 60%);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .avatar-presence-dot--online {
+  animation: imba-aurora 2.2s ease-in-out infinite;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .chat-view--entering .message-list {
+  animation: imba-chat-wipe 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .chat-list li:hover {
+  transform: translateX(4px) scale(1.01);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .btn-send--ready {
+  animation: imba-streak-pulse 1.4s ease-in-out infinite;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .btn-send--burst {
+  position: relative;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .btn-send--burst::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  border: 2px solid var(--accent);
+  animation: imba-send-ring 0.55s ease-out forwards;
+  pointer-events: none;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message:not(.own):hover .message-bubble {
+  animation: imba-magnetic 1.2s ease-in-out infinite;
+}
+
+/* FX picker */
+.message-fx-bar {
+  display: flex;
+  gap: 6px;
+  padding: 4px 10px 2px;
+  animation: imba-fx-bar-in 0.28s ease both;
+}
+
+.message-fx-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  background: color-mix(in srgb, var(--bg-elevated, #1a1a1f) 88%, transparent);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.2s ease;
+}
+
+.message-fx-btn:hover {
+  transform: translateY(-2px) scale(1.08);
+}
+
+.message-fx-btn.active {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 35%, transparent);
+  transform: scale(1.1);
+}
+
+.message-fx-hint {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  padding: 0 12px 4px;
+  opacity: 0.85;
+}
+
+.imba-combo-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 110px;
+  z-index: 40;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow: 0 0 12px var(--accent), 0 2px 8px rgba(0,0,0,0.6);
+  animation: imba-combo-fly 1.1s ease forwards;
+}
+
+.imba-combo-toast--fire { color: #ffb347; }
+.imba-combo-toast--ice { color: #9be7ff; }
+.imba-combo-toast--party { color: #ff8ae2; }
+.imba-combo-toast--shock { color: #ffe566; }
+.imba-combo-toast--void { color: #c9a7ff; }
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .welcome-icon {
+  animation: imba-party-in 0.7s cubic-bezier(0.34, 1.4, 0.64, 1) both, imba-streak-pulse 2.4s ease-in-out 0.8s infinite;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .server-rail-btn.active {
+  animation: nova-glow-pulse 1.6s ease-in-out infinite, imba-streak-pulse 2s ease-in-out infinite;
+}

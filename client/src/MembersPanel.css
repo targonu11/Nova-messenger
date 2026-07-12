@@ -1,0 +1,125 @@
+.members-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  width: min(280px, 42vw);
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-secondary, #1e1f22);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.28);
+}
+
+.members-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.members-panel-head h3 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.members-panel-close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.3rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.members-panel-search {
+  margin: 10px 12px 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.members-panel-body {
+  overflow-y: auto;
+  padding: 6px 8px 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.members-panel-section-title {
+  padding: 8px 8px 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.members-panel-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.members-panel-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.members-panel-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.members-panel-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.members-panel-role {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.members-panel-empty {
+  padding: 16px 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .members-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    width: min(300px, 88vw);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
+  }
+}

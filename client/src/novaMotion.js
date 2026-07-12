@@ -22,18 +22,24 @@ const WELCOME_QUOTES_RU = [
   'Общайся красиво — Nova следит за анимациями ✨',
   'Каналы, группы, звонки — всё в одном месте 🚀',
   'Дважды тапни сообщение — и ❤️ уже там',
+  'Попробуй /fire /glitch /meteor /rainbow — Imba FX 🔥',
   'Закрепи важное 📌 — не потеряется',
   'Настрой звуки и тему под себя 🎨',
   'Сигма-уровень профиля — это реально 🐺',
+  'Спамь реакции — поймаешь COMBO ⚡',
+  'Пиши подряд — поймаешь STREAK 🔥',
 ];
 
 const WELCOME_QUOTES_EN = [
   'Chat beautifully — Nova keeps the animations smooth ✨',
   'Channels, groups, calls — all in one place 🚀',
   'Double-tap a message for an instant ❤️',
+  'Try /fire /glitch /meteor /rainbow — Imba FX 🔥',
   'Pin what matters 📌 — never lose it',
   'Tune sounds and theme to your taste 🎨',
   'Sigma profile level is real 🐺',
+  'Spam reactions to hit a COMBO ⚡',
+  'Send in a row to hit a STREAK 🔥',
 ];
 
 export function getWelcomeQuote(lang = 'ru') {

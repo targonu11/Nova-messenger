@@ -42,6 +42,15 @@ export function incrementUnread(type, id, by = 1) {
   return all[key];
 }
 
+export function setUnread(type, id, count = 1) {
+  const key = chatKey(type, id);
+  const all = readAll();
+  const n = Math.max(1, Number(count) || 1);
+  all[key] = n;
+  writeAll(all);
+  return n;
+}
+
 export function clearUnread(type, id) {
   const key = chatKey(type, id);
   const all = readAll();

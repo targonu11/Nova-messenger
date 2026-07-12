@@ -1,0 +1,169 @@
+/* Nova Imba FX batch 4 — holo/toxic/mirror + roulette + mega combo */
+
+@keyframes imba-holo-in {
+  0% { opacity: 0; transform: translateY(12px); filter: hue-rotate(80deg) saturate(2); }
+  50% { opacity: 0.85; filter: hue-rotate(200deg) saturate(1.6); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes imba-holo-scan {
+  0% { background-position: 0 -100%; }
+  100% { background-position: 0 200%; }
+}
+
+@keyframes imba-toxic-in {
+  0% { opacity: 0; transform: scale(0.7); filter: hue-rotate(60deg) brightness(1.5); }
+  100% { opacity: 1; transform: scale(1); filter: none; }
+}
+
+@keyframes imba-mirror-in {
+  0% { opacity: 0; transform: scaleX(-1) scale(0.85); filter: contrast(1.4); }
+  100% { opacity: 1; transform: scaleX(1) scale(1); filter: none; }
+}
+
+@keyframes imba-pulse-in {
+  0% { opacity: 0; transform: scale(0.6); }
+  40% { opacity: 1; transform: scale(1.15); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes imba-eclipse-in {
+  0% { opacity: 0; filter: brightness(0.1) contrast(1.5); transform: scale(1.2); }
+  60% { filter: brightness(0.6); }
+  100% { opacity: 1; filter: none; transform: scale(1); }
+}
+
+@keyframes imba-drift-in {
+  0% { opacity: 0; transform: rotate(-12deg) translateX(-20px); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes imba-spark-in {
+  0% { opacity: 0; filter: brightness(3); transform: scale(0.5); }
+  50% { filter: brightness(1.8); transform: scale(1.1); }
+  100% { opacity: 1; filter: none; transform: scale(1); }
+}
+
+@keyframes imba-blizzard-in {
+  0% { opacity: 0; transform: translateY(-16px); filter: blur(4px) brightness(1.4); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes imba-roulette-spin {
+  0% { transform: rotate(0deg) scale(1); }
+  40% { transform: rotate(220deg) scale(1.2); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes imba-mega-slam {
+  0% { opacity: 0; transform: translate(-50%, 20px) scale(0.4); filter: brightness(2); }
+  30% { opacity: 1; transform: translate(-50%, -8px) scale(1.25); }
+  100% { opacity: 0; transform: translate(-50%, -56px) scale(0.9); }
+}
+
+@keyframes imba-lock-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent); }
+  50% { box-shadow: 0 0 12px 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--hologram .message-bubble {
+  animation: imba-holo-in 0.55s ease both;
+  border: 1px solid color-mix(in srgb, #5cf0ff 50%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--hologram .message-bubble::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent, rgba(92, 240, 255, 0.2), transparent);
+  background-size: 100% 40%;
+  animation: imba-holo-scan 1.2s linear 2;
+  pointer-events: none;
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--toxic .message-bubble {
+  animation: imba-toxic-in 0.5s ease both;
+  border: 1px solid color-mix(in srgb, #b6ff2a 55%, transparent);
+  box-shadow: 0 0 16px rgba(160, 255, 40, 0.35);
+  color: color-mix(in srgb, #d6ff8a 70%, white);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--mirror .message-bubble {
+  animation: imba-mirror-in 0.55s ease both;
+  border: 1px solid color-mix(in srgb, #cfd8ff 45%, transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--pulse .message-bubble {
+  animation: imba-pulse-in 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) both, imba-love-hearts 1s ease 0.4s 2;
+  border: 1px solid color-mix(in srgb, #ff5c8a 50%, transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--eclipse .message-bubble {
+  animation: imba-eclipse-in 0.65s ease both;
+  border: 1px solid color-mix(in srgb, #6b4dff 45%, transparent);
+  background-image: radial-gradient(circle at 70% 30%, transparent 35%, rgba(0,0,0,0.35) 36%, transparent 70%);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--drift .message-bubble {
+  animation: imba-drift-in 0.55s ease both;
+  border: 1px solid color-mix(in srgb, #9b7bff 45%, transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--spark .message-bubble {
+  animation: imba-spark-in 0.45s ease both;
+  border: 1px solid color-mix(in srgb, #ffe566 60%, transparent);
+  box-shadow: 0 0 20px rgba(255, 230, 80, 0.45);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message.message-fx--blizzard .message-bubble {
+  animation: imba-blizzard-in 0.6s ease both, imba-ice-glow 1.5s ease 0.4s 2;
+  border: 1px solid color-mix(in srgb, #b8e7ff 55%, transparent);
+}
+
+.message-fx-btn--roulette {
+  border-style: dashed;
+}
+
+.message-fx-btn--roulette.spinning {
+  animation: imba-roulette-spin 0.55s ease;
+}
+
+.message-fx-btn--lock.active {
+  animation: imba-lock-glow 1.2s ease-in-out infinite;
+}
+
+.imba-mega-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 170px;
+  z-index: 43;
+  pointer-events: none;
+  font-weight: 900;
+  font-size: 26px;
+  letter-spacing: 0.12em;
+  color: #fff;
+  text-shadow: 0 0 20px var(--accent), 0 0 8px #ffd24d, 0 3px 12px rgba(0,0,0,0.7);
+  animation: imba-mega-slam 1.35s ease forwards;
+}
+
+.imba-mega-toast--super { color: #9be7ff; }
+.imba-mega-toast--mega { color: #ffb347; }
+.imba-mega-toast--ultra { color: #ff8ae2; }
+.imba-mega-toast--godlike { color: #ffd24d; font-size: 30px; }
+
+.imba-screen-flash--hologram { background: linear-gradient(180deg, rgba(92,240,255,0.25), transparent 60%); }
+.imba-screen-flash--toxic { background: radial-gradient(circle, rgba(160,255,40,0.28), transparent 60%); }
+.imba-screen-flash--eclipse { background: radial-gradient(circle, rgba(40,0,80,0.45), transparent 55%); }
+.imba-screen-flash--spark { background: radial-gradient(circle, rgba(255,230,80,0.35), transparent 55%); }
+.imba-screen-flash--pulse { background: radial-gradient(circle, rgba(255,80,140,0.3), transparent 60%); }
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .chat-footer-input:focus {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+html[data-imba-fx="true"]:not([data-reduce-motion="true"]) .message-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 30%, #222));
+}

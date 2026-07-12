@@ -3,9 +3,16 @@ import AnimatedOverlay from './AnimatedOverlay';
 import { t } from './i18n';
 
 const SHORTCUTS = [
+  { keys: ['Ctrl', 'K'], labelKey: 'shortcutQuickSwitcher' },
+  { keys: ['Alt', '↑'], labelKey: 'shortcutSwitchChat' },
+  { keys: ['Alt', '↓'], labelKey: 'shortcutSwitchChat' },
   { keys: ['?'], labelKey: 'shortcutShowHelp' },
   { keys: ['Ctrl', 'F'], labelKey: 'shortcutSearchInChat' },
-  { keys: ['Esc'], labelKey: 'shortcutClose' },
+  { keys: ['Esc'], labelKey: 'shortcutReplyCancel' },
+  { keys: ['R'], labelKey: 'shortcutReply' },
+  { keys: ['↑'], labelKey: 'shortcutReply' },
+  { keys: [':'], labelKey: 'shortcutEmoji' },
+  { keys: ['/'], labelKey: 'shortcutSlash' },
   { keys: ['Enter'], labelKey: 'shortcutSend' },
   { keys: ['Shift', 'Enter'], labelKey: 'shortcutNewLine' },
   { keys: ['2× tap'], labelKey: 'shortcutDoubleTapReact' },
@@ -29,7 +36,7 @@ export default function KeyboardShortcutsModal({ onClose }) {
           </div>
           <ul className="keyboard-shortcuts-list">
             {SHORTCUTS.map(({ keys, labelKey }) => (
-              <li key={labelKey}>
+              <li key={labelKey + keys.join('-')}>
                 <span>{t(labelKey)}</span>
                 <span className="keyboard-shortcuts-keys">
                   {keys.map((k) => (
